@@ -165,6 +165,43 @@
         .menu-gradient {
             background: radial-gradient(circle at center, #1a1b1e 0%, #0a0b0d 100%);
         }
+
+        /* Shop Themes */
+        .theme-gold {
+            --table-green: #4a3701;
+            --table-dark: #1a1400;
+            border-color: var(--gold);
+        }
+
+        .theme-red {
+            --table-green: #3d0d0d;
+            --table-dark: #150505;
+            border-color: #f87171;
+        }
+
+        .theme-blue {
+            --table-green: #0d1e3d;
+            --table-dark: #050a15;
+            border-color: #60a5fa;
+        }
+
+        .card-gold {
+            background: linear-gradient(135deg, #eebd2b 0%, #b45309 100%) !important;
+            color: #2a1b12 !important;
+            border-color: #ffd700 !important;
+        }
+
+        .card-carbon {
+            background: linear-gradient(135deg, #1f2937 0%, #000000 100%) !important;
+            color: white !important;
+            border-color: #374151 !important;
+        }
+
+        .card-royal {
+            background: linear-gradient(135deg, #4c1d95 0%, #1e1b4b 100%) !important;
+            color: #eebd2b !important;
+            border-color: #7c3aed !important;
+        }
     </style>
 </head>
 
@@ -213,30 +250,104 @@
 
         // --- Components ---
 
-        const Card = ({ card, faceDown, index, mini = false }) => (
-            <div
-                className={`${mini ? 'w-12 h-16 sm:w-16 sm:h-20 -ml-6 first:ml-0' : 'w-20 h-28 sm:w-24 sm:h-32'} bg-white rounded shadow-2xl flex flex-col p-2 justify-between border border-slate-200 card-anim relative`}
-                style={{ animationDelay: `${index * 0.1}s` }}
-            >
-                {faceDown ? (
-                    <div className="w-full h-full bg-[#1e1b4b] rounded-[2px] flex items-center justify-center border border-[#eebd2b]">
-                        <div className="text-yellow-600 opacity-40">❖</div>
+        const Card = ({ card, faceDown, index, mini = false, skin = 'default' }) => {
+            const skinClass = skin === 'gold' ? 'card-gold' : skin === 'carbon' ? 'card-carbon' : skin === 'royal' ? 'card-royal' : '';
+            return (
+                <div
+                    className={`${mini ? 'w-12 h-16 sm:w-16 sm:h-20 -ml-6 first:ml-0' : 'w-20 h-28 sm:w-24 sm:h-32'} bg-white rounded shadow-2xl flex flex-col p-2 justify-between border border-slate-200 card-anim relative ${skinClass}`}
+                    style={{ animationDelay: `${index * 0.1}s` }}
+                >
+                    {faceDown ? (
+                        <div className={`w-full h-full rounded-[2px] flex items-center justify-center border ${skin === 'default' ? 'bg-[#1e1b4b] border-[#eebd2b]' : 'bg-black/20 border-white/20'}`}>
+                            {skin === 'gold' ? <div className="text-white text-xl">★</div> : <div className="text-yellow-600 opacity-40">❖</div>}
+                        </div>
+                    ) : (
+                        <React.Fragment>
+                            <div className={`${mini ? 'text-[10px]' : 'text-lg'} font-bold ${card.suit.color} leading-none flex flex-col ${skin !== 'default' ? 'text-current' : ''}`}>
+                                <span>{card.rank}</span>
+                                <span className={mini ? 'text-[8px]' : 'text-xs'}>{card.suit.sym}</span>
+                            </div>
+                            <div className={`${mini ? 'text-lg' : 'text-3xl'} self-center ${card.suit.color} opacity-80 ${skin !== 'default' ? 'text-current' : ''}`}>{card.suit.sym}</div>
+                            <div className={`${mini ? 'text-[10px]' : 'text-lg'} font-bold ${card.suit.color} rotate-180 leading-none flex flex-col ${skin !== 'default' ? 'text-current' : ''}`}>
+                                <span>{card.rank}</span>
+                                <span className={mini ? 'text-[8px]' : 'text-xs'}>{card.suit.sym}</span>
+                            </div>
+                        </React.Fragment>
+                    )}
+                </div>
+            );
+        };
+
+        function Boutique({ user, balance, setBalance, ownedItems, setOwnedItems, activeSkins, setActiveSkins, onBack }) {
+            const ITEMS = [
+                { id: 'skin_gold', name: 'Gold Edition', type: 'card', price: 50000, desc: 'Un look luxueux pour vos cartes.' },
+                { id: 'skin_carbon', name: 'Carbon Fiber', type: 'card', price: 75000, desc: 'Design moderne et furtif.' },
+                { id: 'skin_royal', name: 'Royal Purple', type: 'card', price: 100000, desc: 'La pourpre des empereurs.' },
+                { id: 'tapis_red', name: 'Vegas Red', type: 'tapis', price: 40000, desc: 'L\'intensité de Las Vegas.' },
+                { id: 'tapis_blue', name: 'Sapphire Blue', type: 'tapis', price: 40000, desc: 'L\'élégance du bleu saphir.' },
+                { id: 'tapis_gold', name: 'Midas Gold', type: 'tapis', price: 150000, desc: 'Jouez sur de l\'or massif.' },
+            ];
+
+            const buy = (item) => {
+                if (balance < item.price) return;
+                setBalance(b => b - item.price);
+                setOwnedItems(prev => [...prev, item.id]);
+            };
+
+            const equip = (item) => {
+                setActiveSkins(prev => ({ ...prev, [item.type]: item.id.replace('skin_', '').replace('tapis_', '') }));
+            };
+
+            return (
+                <div className="fixed inset-0 z-50 menu-gradient flex flex-col">
+                    <header className="p-6 flex items-center justify-between border-b border-white/10">
+                        <button onClick={onBack} className="flex items-center gap-2 text-white/60 hover:text-white transition-colors">
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
+                            <span className="text-xs font-bold uppercase tracking-widest">Back</span>
+                        </button>
+                        <h2 className="text-xl font-serif-italic gold-text">La Boutique Premium</h2>
+                        <div className="bg-gold/10 px-4 py-1 rounded-full border border-gold/30 gold-text font-bold">${balance.toLocaleString()}</div>
+                    </header>
+                    <div className="flex-1 overflow-y-auto p-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto w-full">
+                        {ITEMS.map(item => {
+                            const isOwned = ownedItems.includes(item.id);
+                            const isActive = activeSkins[item.type] === item.id.replace('skin_', '').replace('tapis_', '');
+                            return (
+                                <div key={item.id} className="glass-panel p-6 rounded-2xl flex flex-col gap-4 relative overflow-hidden group hover:border-gold/50 transition-colors">
+                                    <div className="flex justify-between items-start">
+                                        <div className="flex flex-col">
+                                            <span className="text-[10px] uppercase font-bold opacity-30 tracking-widest">{item.type} skin</span>
+                                            <h3 className="text-lg font-bold">{item.name}</h3>
+                                        </div>
+                                        {isActive && <span className="bg-green-500/20 text-green-400 text-[8px] font-bold px-2 py-0.5 rounded-full border border-green-500/30 uppercase">Active</span>}
+                                    </div>
+                                    <p className="text-xs opacity-50 leading-relaxed">{item.desc}</p>
+                                    <div className="mt-auto flex items-center justify-between pt-4 border-t border-white/5">
+                                        {!isOwned ? (
+                                            <button
+                                                onClick={() => buy(item)}
+                                                disabled={balance < item.price}
+                                                className="w-full bg-gold hover:bg-yellow-500 disabled:opacity-30 disabled:hover:bg-gold text-black font-bold py-2 rounded-xl text-xs transition-colors"
+                                            >
+                                                ACHETER - ${item.price.toLocaleString()}
+                                            </button>
+                                        ) : (
+                                            <button
+                                                onClick={() => equip(item)}
+                                                disabled={isActive}
+                                                className={`w-full font-bold py-2 rounded-xl text-xs transition-colors ${isActive ? 'bg-white/5 text-white/30 cursor-default' : 'bg-white/10 hover:bg-white/20 text-white'}`}
+                                            >
+                                                {isActive ? 'ÉQUIPÉ' : 'ÉQUIPER'}
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            );
+                        })}
                     </div>
-                ) : (
-                    <React.Fragment>
-                        <div className={`${mini ? 'text-[10px]' : 'text-lg'} font-bold ${card.suit.color} leading-none flex flex-col`}>
-                            <span>{card.rank}</span>
-                            <span className={mini ? 'text-[8px]' : 'text-xs'}>{card.suit.sym}</span>
-                        </div>
-                        <div className={`${mini ? 'text-lg' : 'text-3xl'} self-center ${card.suit.color} opacity-80`}>{card.suit.sym}</div>
-                        <div className={`${mini ? 'text-[10px]' : 'text-lg'} font-bold ${card.suit.color} rotate-180 leading-none flex flex-col`}>
-                            <span>{card.rank}</span>
-                            <span className={mini ? 'text-[8px]' : 'text-xs'}>{card.suit.sym}</span>
-                        </div>
-                    </React.Fragment>
-                )}
-            </div>
-        );
+                </div>
+            );
+        }
 
         function MainMenu({ onSelectMode, user, triggerLogin }) {
             return (
@@ -262,6 +373,11 @@
                     <p className="text-[10px] uppercase tracking-[0.5em] gold-text opacity-40 mb-16">— The Authentic Pro Experience —</p>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 w-full max-w-2xl">
+                        <button onClick={() => setView('shop')} className="group glass-panel h-44 rounded-3xl p-8 flex flex-col items-center justify-center border-white/5 hover:border-gold/30 transition-all hover:scale-105">
+                            <span className="text-4xl mb-4 group-hover:scale-110 transition-transform">🛍️</span>
+                            <h3 className="text-xl font-bold mb-1">Boutique</h3>
+                            <p className="text-[9px] opacity-40 uppercase tracking-widest leading-none">Customization & Skins</p>
+                        </button>
                         <button onClick={() => onSelectMode('multiplayer')} className="group glass-panel h-44 rounded-3xl p-8 flex flex-col items-center justify-center border-white/5 hover:border-gold/30 transition-all hover:scale-105">
                             <span className="text-4xl mb-4">🌐</span>
                             <h3 className="text-xl font-bold mb-1">Multiplayer</h3>
@@ -288,6 +404,8 @@
             const [xp, setXp] = useState(0);
             const [stats, setStats] = useState({ wins: 0, losses: 0, draws: 0 });
             const [history, setHistory] = useState([]);
+            const [ownedItems, setOwnedItems] = useState(['skin_default', 'tapis_default']);
+            const [activeSkins, setActiveSkins] = useState({ card: 'default', tapis: 'default' });
 
             // Game State
             const [tableId, setTableId] = useState('Casino-Royale');
@@ -313,12 +431,14 @@
                     setBalance(saved.balance); setLevel(saved.level); setXp(saved.xp);
                     setStats(saved.stats || { wins: 0, losses: 0, draws: 0 });
                     setHistory(saved.history || []);
+                    if (saved.ownedItems) setOwnedItems(saved.ownedItems);
+                    if (saved.activeSkins) setActiveSkins(saved.activeSkins);
                 }
             }, []);
 
             useEffect(() => {
-                localStorage.setItem('blackjack_game_state', JSON.stringify({ balance, level, xp, stats, history }));
-            }, [balance, level, xp, stats, history]);
+                localStorage.setItem('blackjack_game_state', JSON.stringify({ balance, level, xp, stats, history, ownedItems, activeSkins }));
+            }, [balance, level, xp, stats, history, ownedItems, activeSkins]);
 
             useEffect(() => {
                 if (mode === 'multiplayer' && view === 'game') {
@@ -635,6 +755,7 @@
             };
 
             if (view === 'menu') return <MainMenu onSelectMode={resetAndSelectMode} user={user} triggerLogin={triggerLogin} />;
+            if (view === 'shop') return <Boutique user={user} balance={balance} setBalance={setBalance} ownedItems={ownedItems} setOwnedItems={setOwnedItems} activeSkins={activeSkins} setActiveSkins={setActiveSkins} onBack={() => setView('menu')} />;
 
             return (
                 <div className="h-full w-full flex flex-col">
@@ -649,6 +770,9 @@
                             </div>
                         </div>
                         <div className="flex items-center gap-4">
+                            <button onClick={() => setView('shop')} className="glass-panel px-4 py-1.5 rounded-full flex items-center gap-2 text-[10px] font-bold gold-text hover:border-gold transition-colors">
+                                <span className="text-xs">🛒</span> Boutique
+                            </button>
                             {user ? (
                                 <div className="flex items-center gap-3 bg-white/5 border border-white/10 pl-1 pr-3 py-1 rounded-full">
                                     <img src={user.picture} className="w-8 h-8 rounded-full border border-gold/30" />
@@ -667,7 +791,7 @@
                         <div className="flex-1 table-felt rounded-[80px] border-[12px] border-[#1a100a] relative flex flex-col items-center justify-between py-10 px-8">
                             <div className="flex flex-col items-center">
                                 <div className="flex gap-3 mb-4 h-32">
-                                    {gameState.dealerCards.map((c, i) => <Card key={i} card={c} faceDown={gameState.turn !== 3 && i === 1} index={i} />)}
+                                    {gameState.dealerCards.map((c, i) => <Card key={i} card={c} faceDown={gameState.turn !== 3 && i === 1} index={i} skin={activeSkins.card} />)}
                                     {gameState.dealerCards.length === 0 && <div className="w-24 h-32 border-2 border-white/5 rounded-md opacity-10" />}
                                 </div>
                                 <div className="bg-black/40 px-4 py-1 rounded-full border border-yellow-500/20 text-[9px] uppercase font-bold tracking-[0.2em] gold-text">Dealer stands on 17 • Pays 3 to 2</div>
@@ -711,7 +835,7 @@
                                                     <div className="flex gap-4">
                                                         {p.hands.map((h, hi) => (
                                                             <div key={hi} className={`flex flex-col items-center transition-opacity ${p.activeHandIdx === hi ? 'opacity-100 scale-105' : 'opacity-40'}`}>
-                                                                <div className="flex mb-1">{h.cards.map((c, ci) => <Card key={ci} card={c} index={ci} mini />)}</div>
+                                                                <div className="flex mb-1">{h.cards.map((c, ci) => <Card key={ci} card={c} index={ci} mini skin={activeSkins.card} />)}</div>
                                                                 <div className="bg-black/80 px-2 py-0.5 rounded text-[8px] font-bold gold-text shadow">Score: {calculateScore(h.cards)}</div>
                                                                 {h.result && <div className="absolute -top-12 text-[10px] gold-text font-bold uppercase tracking-widest bg-black/60 px-2 py-1 rounded">{h.result}</div>}
                                                             </div>
