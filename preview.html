@@ -282,22 +282,24 @@
 
             // Google Auth Handler
             useEffect(() => {
-                /* global google */
-                if (typeof google !== 'undefined') {
-                    google.accounts.id.initialize({
-                        client_id: "725547674251-5o9geun4o0s39023475923057.apps.googleusercontent.com", // Placeholder
-                        callback: handleCredentialResponse
-                    });
-                    if (!user) {
-                        google.accounts.id.renderButton(
-                            document.getElementById("google-login-container"),
-                            { theme: "outline", size: "large", shape: "pill", text: "continue_with" }
-                        );
+                const initAuth = () => {
+                    if (typeof google !== 'undefined') {
+                        google.accounts.id.initialize({
+                            client_id: "725547674251-5o9geun4o0s39023475923057.apps.googleusercontent.com",
+                            callback: handleCredentialResponse,
+                            auto_select: false,
+                            cancel_on_tap_outside: true
+                        });
+                        console.log("Google Global Auth Initialized");
+                    } else {
+                        setTimeout(initAuth, 500);
                     }
-                }
+                };
+                initAuth();
             }, [user]);
 
             const handleCredentialResponse = (response) => {
+                console.log("Token received from Google");
                 const profile = decodeJwt(response.credential);
                 if (profile) {
                     setUser({
@@ -308,15 +310,25 @@
                 }
             };
 
+            const triggerLogin = () => {
+                console.log("Attempting to trigger Google Prompt...");
+                if (typeof google !== 'undefined') {
+                    google.accounts.id.prompt((notification) => {
+                        if (notification.isNotDisplayed()) {
+                            console.warn("Prompt not displayed: " + notification.getNotDisplayedReason());
+                            // Fallback: If One Tap is blocked/closed, we can't easily force it without a button
+                            // But we can try to alert the user or log it.
+                            alert("Veuillez rafraîchir la page ou vérifier vos paramètres de blocage de fenêtres surgissantes.");
+                        }
+                    });
+                } else {
+                    alert("Le service d'authentification Google n'est pas encore chargé.");
+                }
+            };
+
             const logout = () => {
                 setUser(null);
-                // Trigger re-render of login button
-                setTimeout(() => {
-                    google.accounts.id.renderButton(
-                        document.getElementById("google-login-container"),
-                        { theme: "outline", size: "large", shape: "pill", text: "continue_with" }
-                    );
-                }, 100);
+                localStorage.removeItem('blackjack_user');
             };
 
             // --- Game Actions ---
@@ -405,12 +417,7 @@
                                 </div>
                             ) : (
                                 <div
-                                    onClick={() => {
-                                        /* global google */
-                                        if (typeof google !== 'undefined') {
-                                            google.accounts.id.prompt();
-                                        }
-                                    }}
+                                    onClick={triggerLogin}
                                     className="w-10 h-10 rounded-full border-2 border-dashed border-white/20 flex items-center justify-center cursor-pointer hover:border-gold/50 transition-all hover:bg-white/5 group shadow-lg"
                                     title="Connectez-vous pour enregistrer votre progression"
                                 >
