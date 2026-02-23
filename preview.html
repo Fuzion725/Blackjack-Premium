@@ -349,7 +349,7 @@
             );
         }
 
-        function MainMenu({ onSelectMode, user, triggerLogin }) {
+        function MainMenu({ onSelectMode, onOpenShop, user, triggerLogin }) {
             return (
                 <div className="h-full w-full flex flex-col items-center justify-center menu-gradient p-8 text-center relative overflow-hidden">
                     <div className="absolute top-0 right-0 p-6">
@@ -373,7 +373,7 @@
                     <p className="text-[10px] uppercase tracking-[0.5em] gold-text opacity-40 mb-16">— The Authentic Pro Experience —</p>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 w-full max-w-2xl">
-                        <button onClick={() => setView('shop')} className="group glass-panel h-44 rounded-3xl p-8 flex flex-col items-center justify-center border-white/5 hover:border-gold/30 transition-all hover:scale-105">
+                        <button onClick={onOpenShop} className="group glass-panel h-44 rounded-3xl p-8 flex flex-col items-center justify-center border-white/5 hover:border-gold/30 transition-all hover:scale-105">
                             <span className="text-4xl mb-4 group-hover:scale-110 transition-transform">🛍️</span>
                             <h3 className="text-xl font-bold mb-1">Boutique</h3>
                             <p className="text-[9px] opacity-40 uppercase tracking-widest leading-none">Customization & Skins</p>
@@ -754,7 +754,7 @@
                 setView('game');
             };
 
-            if (view === 'menu') return <MainMenu onSelectMode={resetAndSelectMode} user={user} triggerLogin={triggerLogin} />;
+            if (view === 'menu') return <MainMenu onSelectMode={resetAndSelectMode} onOpenShop={() => setView('shop')} user={user} triggerLogin={triggerLogin} />;
             if (view === 'shop') return <Boutique user={user} balance={balance} setBalance={setBalance} ownedItems={ownedItems} setOwnedItems={setOwnedItems} activeSkins={activeSkins} setActiveSkins={setActiveSkins} onBack={() => setView('menu')} />;
 
             return (
