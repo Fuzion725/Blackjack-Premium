@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Blackjack Premium - Multiplayer Experience</title>
+    <title>Blackjack Premium - Authentic Experience</title>
     <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -162,6 +162,15 @@
             box-shadow: 0 0 20px rgba(238, 189, 43, 0.2);
             border: 2px solid rgba(238, 189, 43, 0.3);
         }
+
+        /* Menu Styles */
+        .menu-gradient {
+            background: radial-gradient(circle at center, #1a1b1e 0%, #0a0b0d 100%);
+        }
+
+        .menu-item-hover:hover {
+            background: linear-gradient(to right, rgba(238, 189, 43, 0.1), transparent);
+        }
     </style>
 </head>
 
@@ -172,9 +181,7 @@
         const { useState, useEffect, useCallback, useMemo, useRef } = React;
 
         // --- Configuration ---
-        const TABLE_ID = window.location.hash.replace('#', '') || 'Lobby-Premium';
-        const gun = Gun(['https://gun-manhattan.herokuapp.com/gun']); // Public relay
-        const table = gun.get('blackjack-premium').get(TABLE_ID);
+        const gun = Gun(['https://gun-manhattan.herokuapp.com/gun']);
 
         // --- Logic Engine ---
         const SUITS = [
@@ -262,29 +269,97 @@
             </div>
         );
 
+        function MainMenu({ onSelectMode, user, triggerLogin }) {
+            return (
+                <div className="h-full w-full flex flex-col items-center justify-center menu-gradient p-8 text-center relative overflow-hidden">
+                    <div className="absolute top-0 right-0 p-6">
+                        {user ? (
+                            <div className="flex items-center gap-3 bg-white/5 border border-white/10 pl-1 pr-3 py-1 rounded-full">
+                                <img src={user.picture} className="w-8 h-8 rounded-full border border-gold/30" />
+                                <span className="text-[10px] font-bold opacity-80">{user.name}</span>
+                            </div>
+                        ) : (
+                            <button onClick={triggerLogin} className="px-4 py-2 rounded-full border border-white/20 text-xs font-bold hover:border-gold/50 transition-all">Sign In</button>
+                        )}
+                    </div>
+
+                    <div className="w-24 h-24 gold-bg rounded-3xl flex items-center justify-center p-4 shadow-[0_0_50px_rgba(238,189,43,0.3)] mb-8 scale-110">
+                        <svg className="logo-gear text-black w-full h-full" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12,2L4.5,20.29L5.21,21L12,18L18.79,21L19.5,20.29L12,2Z" />
+                        </svg>
+                    </div>
+
+                    <h1 className="text-5xl sm:text-7xl font-serif-italic gold-text mb-4 italic tracking-tight">Blackjack Premium</h1>
+                    <p className="text-[10px] uppercase tracking-[0.5em] gold-text opacity-40 mb-16">— The Exclusive VIP Experience —</p>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 w-full max-w-2xl">
+                        <button
+                            onClick={() => onSelectMode('multiplayer')}
+                            className="group glass-panel h-48 rounded-3xl p-8 flex flex-col items-center justify-center border-white/5 hover:border-gold/30 transition-all hover:scale-105"
+                        >
+                            <span className="text-4xl mb-4 group-hover:scale-110 transition-transform">🌐</span>
+                            <h3 className="text-xl font-bold mb-2">Multijoueur</h3>
+                            <p className="text-[10px] opacity-40 uppercase tracking-widest">Jouez avec vos amis</p>
+                        </button>
+
+                        <button
+                            onClick={() => onSelectMode('solo')}
+                            className="group glass-panel h-48 rounded-3xl p-8 flex flex-col items-center justify-center border-white/5 hover:border-gold/30 transition-all hover:scale-105"
+                        >
+                            <span className="text-4xl mb-4 group-hover:scale-110 transition-transform">🤖</span>
+                            <h3 className="text-xl font-bold mb-2">Solo vs Bot</h3>
+                            <p className="text-[10px] opacity-40 uppercase tracking-widest">Entraînement avec IA</p>
+                        </button>
+                    </div>
+
+                    <p className="absolute bottom-8 text-[9px] uppercase tracking-[0.3em] opacity-20">v2.0 • Monte Carlo Authentic Experience</p>
+                </div>
+            );
+        }
+
         function App() {
+            const [view, setView] = useState('menu'); // menu, game
+            const [mode, setMode] = useState('multiplayer'); // solo, multiplayer
+
             const [user, setUser] = useState(() => JSON.parse(localStorage.getItem('blackjack_user')) || null);
             const [localBalance, setLocalBalance] = useState(250000);
             const [localXp, setLocalXp] = useState(0);
             const [localLevel, setLocalLevel] = useState(1);
             const [history, setHistory] = useState([]);
 
+            const [tableId, setTableId] = useState(() => window.location.hash.replace('#', '') || 'Table-Classic');
+
             // Multiplayer State
             const [syncState, setSyncState] = useState({
                 dealerHand: [],
                 deck: [],
-                turn: -1, // -1: Betting, 0-2: Player Turns, 3: Dealer Turn
+                turn: -1,
                 status: 'betting',
                 players: [null, null, null],
-                message: 'Waiting for players...'
+                message: 'Place your bets'
             });
             const [mySeat, setMySeat] = useState(-1);
 
-            // Refs for GunDB persistence
             const stateRef = useRef(syncState);
             stateRef.current = syncState;
 
-            // Load local data
+            // GunDB Hook
+            useEffect(() => {
+                if (view === 'game' && mode === 'multiplayer') {
+                    const currentTable = gun.get('blackjack-premium').get(tableId);
+                    currentTable.on((data) => {
+                        if (data) {
+                            try {
+                                const parsed = typeof data === 'string' ? JSON.parse(data) : data;
+                                setSyncState(prev => ({ ...prev, ...parsed }));
+                            } catch (e) { }
+                        }
+                    });
+                    return () => currentTable.off();
+                }
+            }, [view, mode, tableId]);
+
+            // Persistence
             useEffect(() => {
                 const saved = JSON.parse(localStorage.getItem('blackjack_game_state'));
                 if (saved) {
@@ -295,19 +370,6 @@
                 }
             }, []);
 
-            // GunDB Listener
-            useEffect(() => {
-                table.on((data) => {
-                    if (data) {
-                        try {
-                            const parsed = typeof data === 'string' ? JSON.parse(data) : data;
-                            setSyncState(prev => ({ ...prev, ...parsed }));
-                        } catch (e) { console.error("Sync error", e); }
-                    }
-                });
-            }, []);
-
-            // Sync with LocalStorage
             useEffect(() => {
                 localStorage.setItem('blackjack_game_state', JSON.stringify({
                     balance: localBalance, level: localLevel, xp: localXp, history
@@ -337,33 +399,59 @@
 
             const triggerLogin = () => {
                 if (typeof google !== 'undefined') google.accounts.id.prompt();
-                else alert("Google Auth not loaded yet.");
+                else alert("Auth not loaded.");
             };
 
-            const logout = () => {
-                setUser(null);
-                localStorage.removeItem('blackjack_user');
-            };
+            const logout = () => { setUser(null); localStorage.removeItem('blackjack_user'); };
 
             // --- Multiplayer Actions ---
-
             const updateRemote = (patch) => {
-                table.put({ ...stateRef.current, ...patch });
+                if (mode === 'solo') {
+                    setSyncState(prev => ({ ...prev, ...patch }));
+                    // Bot logic for Solo
+                    if (patch.turn === 1 && mode === 'solo') {
+                        setTimeout(() => botLogic(patch.players || stateRef.current.players), 1500);
+                    }
+                } else {
+                    gun.get('blackjack-premium').get(tableId).put({ ...stateRef.current, ...patch });
+                }
+            };
+
+            const botLogic = (players) => {
+                const bot = players[1];
+                const score = calculateScore(bot.hand);
+                if (score < 17) {
+                    const deck = [...stateRef.current.deck];
+                    const card = deck.pop();
+                    const newPlayers = [...players];
+                    newPlayers[1].hand.push(card);
+                    if (calculateScore(newPlayers[1].hand) > 21) {
+                        newPlayers[1].status = 'bust';
+                        nextTurn(newPlayers, deck, 1);
+                    } else {
+                        updateRemote({ players: newPlayers, deck });
+                        setTimeout(() => botLogic(newPlayers), 1500);
+                    }
+                } else {
+                    const newPlayers = [...players];
+                    newPlayers[1].status = 'stand';
+                    nextTurn(newPlayers, stateRef.current.deck, 1);
+                }
             };
 
             const claimSeat = (i) => {
-                if (!user) return triggerLogin();
-                if (syncState.players[i]) return;
+                if (!user && mode !== 'solo') return triggerLogin();
 
                 const newPlayers = [...syncState.players];
-                newPlayers[i] = {
-                    id: user.email,
-                    name: user.name,
-                    picture: user.picture,
-                    hand: [],
-                    bet: 0,
-                    status: 'idle'
-                };
+                const myProfile = user || { name: 'Player One', picture: 'https://cdn-icons-png.flaticon.com/512/149/149071.png' };
+
+                newPlayers[i] = { id: myProfile.email || 'solo-p1', name: myProfile.name, picture: myProfile.picture, hand: [], bet: 0, status: 'idle' };
+
+                if (mode === 'solo') {
+                    // Add Bot at seat 1
+                    newPlayers[1] = { id: 'bot', name: 'Bot VIP', picture: 'https://cdn-icons-png.flaticon.com/512/4712/4712035.png', hand: [], bet: 1000, status: 'ready' };
+                }
+
                 setMySeat(i);
                 updateRemote({ players: newPlayers, status: 'betting' });
             };
@@ -375,34 +463,21 @@
                 newPlayers[mySeat].bet = amount;
                 newPlayers[mySeat].status = 'ready';
 
-                // If everyone is ready, start
                 const ready = newPlayers.filter(p => p && p.status === 'ready').length;
                 const active = newPlayers.filter(p => p).length;
 
-                if (ready === active && active > 0) {
-                    startRound(newPlayers);
-                } else {
-                    updateRemote({ players: newPlayers, message: `Waiting for ${active - ready} more bets...` });
-                }
+                if (ready === active && active > 0) startRound(newPlayers);
+                else updateRemote({ players: newPlayers, message: `Waiting for ${active - ready} bettors...` });
             };
 
             const startRound = (players) => {
                 const deck = createDeck();
                 const dealerHand = [deck.pop(), deck.pop()];
-                const updatedPlayers = players.map(p => {
-                    if (!p) return null;
-                    return { ...p, hand: [deck.pop(), deck.pop()], status: 'playing' };
-                });
-
-                // Find first player
+                const updatedPlayers = players.map(p => p ? { ...p, hand: [deck.pop(), deck.pop()], status: 'playing' } : null);
                 const firstPlayerIndex = updatedPlayers.findIndex(p => p);
 
                 updateRemote({
-                    deck,
-                    dealerHand,
-                    players: updatedPlayers,
-                    turn: firstPlayerIndex,
-                    status: 'playing',
+                    deck, dealerHand, players: updatedPlayers, turn: firstPlayerIndex, status: 'playing',
                     message: `It's ${updatedPlayers[firstPlayerIndex].name}'s turn`
                 });
             };
@@ -416,30 +491,22 @@
 
                 if (calculateScore(newPlayers[mySeat].hand) > 21) {
                     newPlayers[mySeat].status = 'bust';
-                    nextTurn(newPlayers, deck);
-                } else {
-                    updateRemote({ players: newPlayers, deck });
-                }
+                    nextTurn(newPlayers, deck, mySeat);
+                } else updateRemote({ players: newPlayers, deck });
             };
 
             const stand = () => {
                 if (syncState.turn !== mySeat) return;
                 const newPlayers = [...syncState.players];
                 newPlayers[mySeat].status = 'stand';
-                nextTurn(newPlayers, syncState.deck);
+                nextTurn(newPlayers, syncState.deck, mySeat);
             };
 
-            const nextTurn = (players, deck) => {
-                const nextIdx = players.findIndex((p, i) => p && i > syncState.turn && p.status === 'playing');
-                if (nextIdx === -1) {
-                    dealerTurn(players, deck);
-                } else {
-                    updateRemote({
-                        players,
-                        deck,
-                        turn: nextIdx,
-                        message: `It's ${players[nextIdx].name}'s turn`
-                    });
+            const nextTurn = (players, deck, currentIdx) => {
+                const nextIdx = players.findIndex((p, i) => p && i > currentIdx && (p.status === 'playing' || p.status === 'ready'));
+                if (nextIdx === -1) dealerTurn(players, deck);
+                else {
+                    updateRemote({ players, deck, turn: nextIdx, message: `It's ${players[nextIdx].name}'s turn` });
                 }
             };
 
@@ -452,28 +519,14 @@
                 const updatedPlayers = players.map(p => {
                     if (!p) return null;
                     const pScore = calculateScore(p.hand);
-                    let result = '';
-                    if (p.status === 'bust') result = 'Dealer Wins';
-                    else if (dScore > 21) result = 'Player Wins';
-                    else if (pScore > dScore) result = 'Player Wins';
-                    else if (pScore === dScore) result = 'Push';
-                    else result = 'Dealer Wins';
-
+                    let result = p.status === 'bust' ? 'Dealer Wins' : (dScore > 21 || pScore > dScore ? 'Player Wins' : (pScore === dScore ? 'Push' : 'Dealer Wins'));
                     return { ...p, result, status: 'results' };
                 });
 
-                updateRemote({
-                    dealerHand: dHand,
-                    deck: dDeck,
-                    players: updatedPlayers,
-                    turn: 3,
-                    status: 'results',
-                    message: 'Round Results'
-                });
+                updateRemote({ dealerHand: dHand, deck: dDeck, players: updatedPlayers, turn: 3, status: 'results', message: 'Round Results' });
 
-                // Apply rewards locally
                 const myPlayer = updatedPlayers[mySeat];
-                if (myPlayer) {
+                if (myPlayer && mySeat !== -1) {
                     const win = myPlayer.result === 'Player Wins';
                     const push = myPlayer.result === 'Push';
                     const gain = win ? myPlayer.bet * 2 : (push ? myPlayer.bet : 0);
@@ -482,59 +535,45 @@
                     const xpGain = win ? 50 : 10;
                     setLocalXp(x => {
                         let nx = x + xpGain;
-                        if (nx >= localLevel * 100) {
-                            nx %= (localLevel * 100);
-                            setLocalLevel(l => l + 1);
-                        }
+                        if (nx >= localLevel * 100) { nx %= (localLevel * 100); setLocalLevel(l => l + 1); }
                         return nx;
                     });
                     setHistory(h => [{ id: Date.now(), result: myPlayer.result, amount: win ? myPlayer.bet : (push ? 0 : myPlayer.bet), win, push }, ...h].slice(0, 10));
                 }
 
-                // Reset after 5s
                 setTimeout(() => {
-                    const resetPlayers = stateRef.current.players.map(p => p ? { ...p, hand: [], bet: 0, status: 'idle', result: '' } : null);
-                    updateRemote({
-                        players: resetPlayers,
-                        dealerHand: [],
-                        turn: -1,
-                        status: 'betting',
-                        message: 'Place your bets'
-                    });
-                }, 5000);
+                    const resetPlayers = stateRef.current.players.map(p => p ? { ...p, hand: [], bet: mode === 'solo' && p.id === 'bot' ? 1000 : 0, status: mode === 'solo' && p.id === 'bot' ? 'ready' : 'idle', result: '' } : null);
+                    updateRemote({ players: resetPlayers, dealerHand: [], turn: -1, status: 'betting', message: 'Place your bets' });
+                }, 4000);
             };
+
+            if (view === 'menu') return <MainMenu onSelectMode={(m) => { setMode(m); setView('game'); }} user={user} triggerLogin={triggerLogin} />;
 
             return (
                 <div className="h-full w-full flex flex-col">
                     <header className="h-16 flex items-center justify-between px-6 bg-black border-b border-white/10 shrink-0">
                         <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 gold-bg rounded flex items-center justify-center p-1.5 shadow-[0_0_15px_rgba(238,189,43,0.3)]">
-                                <svg className="logo-gear text-black w-7 h-7" viewBox="0 0 24 24" fill="currentColor">
-                                    <path d="M12,2L4.5,20.29L5.21,21L12,18L18.79,21L19.5,20.29L12,2Z" />
-                                </svg>
+                            <div onClick={() => setView('menu')} className="w-10 h-10 gold-bg rounded flex items-center justify-center p-1.5 shadow-[0_0_15px_rgba(238,189,43,0.3)] cursor-pointer hover:scale-105 transition-transform">
+                                <svg className="logo-gear text-black w-7 h-7" viewBox="0 0 24 24" fill="currentColor"><path d="M12,2L4.5,20.29L5.21,21L12,18L18.79,21L19.5,20.29L12,2Z" /></svg>
                             </div>
                             <div className="flex flex-col">
                                 <span className="font-bold tracking-tighter text-lg gold-text italic leading-none">BLACKJACK PREMIUM</span>
-                                <span className="text-[9px] uppercase tracking-[0.2em] opacity-40 ml-1">Table: {TABLE_ID}</span>
+                                <span className="text-[9px] uppercase tracking-[0.2em] opacity-40 ml-1">{mode === 'solo' ? 'Practice Mode' : `Table: ${tableId}`}</span>
                             </div>
                         </div>
 
                         <div className="flex items-center gap-4">
                             {user ? (
                                 <div className="flex items-center gap-3 bg-white/5 border border-white/10 pl-1 pr-3 py-1 rounded-full">
-                                    <div className="w-8 h-8 rounded-full overflow-hidden border border-gold/30">
-                                        <img src={user.picture} className="w-full h-full object-cover" />
-                                    </div>
+                                    <img src={user.picture} className="w-8 h-8 rounded-full border border-gold/30" />
                                     <div className="flex flex-col">
                                         <span className="text-[10px] font-bold opacity-80 leading-none">{user.name}</span>
                                         <span className="text-[9px] gold-text font-bold uppercase tracking-widest mt-0.5">Niveau {localLevel}</span>
                                     </div>
-                                    <button onClick={logout} className="ml-2 text-white/30 hover:text-red-400 text-xs">Logout</button>
+                                    <button onClick={logout} className="ml-2 text-white/30 hover:text-red-400 text-xs text-[8px]">Exit</button>
                                 </div>
                             ) : (
-                                <div onClick={triggerLogin} className="w-10 h-10 rounded-full border-2 border-dashed border-white/20 flex items-center justify-center cursor-pointer hover:border-gold/50 transition-all hover:bg-white/5 group shadow-lg">
-                                    <span className="text-white/20 group-hover:text-gold/50 text-xl">👤</span>
-                                </div>
+                                <div onClick={triggerLogin} className="w-10 h-10 rounded-full border-2 border-dashed border-white/20 flex items-center justify-center cursor-pointer hover:border-gold/50"><span className="text-white/20 text-xl">👤</span></div>
                             )}
                         </div>
                     </header>
@@ -557,34 +596,27 @@
                                     <p className="text-[9px] uppercase tracking-[0.5em] gold-text mt-2">{syncState.message}</p>
                                 </div>
 
-                                {/* Multiplayer Seats */}
-                                <div className="absolute inset-x-0 bottom-12 flex justify-around px-12 gap-8 h-40">
+                                <div className="absolute inset-x-0 bottom-12 flex justify-around px-8 gap-4 h-40">
                                     {[0, 1, 2].map(i => {
                                         const p = syncState.players[i];
-                                        const isMyTurn = syncState.turn === i;
                                         return (
                                             <div key={i} className={`flex-1 flex flex-col items-center justify-end relative ${mySeat === i ? 'seat-highlight rounded-2xl p-2' : ''}`}>
                                                 {p ? (
                                                     <div className="flex flex-col items-center">
-                                                        <div className="flex mb-2">
-                                                            {p.hand.map((c, ci) => <MiniCard key={ci} card={c} index={ci} />)}
-                                                        </div>
-                                                        <div className="bg-black/80 p-2 rounded-lg border border-white/10 flex items-center gap-2 min-w-[120px]">
-                                                            <div className="w-8 h-8 rounded-full overflow-hidden border border-gold/30">
-                                                                <img src={p.picture} className="w-full h-full object-cover" />
-                                                            </div>
+                                                        <div className="flex mb-2">{p.hand.map((c, ci) => <MiniCard key={ci} card={c} index={ci} />)}</div>
+                                                        <div className="bg-black/80 p-2 rounded-lg border border-white/10 flex items-center gap-2 min-w-[100px]">
+                                                            <img src={p.picture} className="w-6 h-6 rounded-full border border-gold/30" />
                                                             <div className="flex flex-col">
-                                                                <span className="text-[9px] font-bold truncate max-w-[80px]">{p.name}</span>
-                                                                <span className="text-[10px] gold-text font-bold italic">${p.bet}</span>
+                                                                <span className="text-[8px] font-bold truncate max-w-[60px]">{p.name}</span>
+                                                                <span className="text-[9px] gold-text font-bold">${p.bet}</span>
                                                             </div>
                                                         </div>
-                                                        {p.result && <div className="absolute -top-16 text-xs gold-text font-bold uppercase tracking-widest animate-pulse">{p.result}</div>}
-                                                        {isMyTurn && <div className="absolute -bottom-2 w-2 h-2 rounded-full bg-gold animate-ping" />}
+                                                        {p.result && <div className="absolute -top-16 text-[10px] gold-text font-bold uppercase tracking-widest animate-pulse">{p.result}</div>}
+                                                        {syncState.turn === i && <div className="absolute -bottom-2 w-1.5 h-1.5 rounded-full bg-gold animate-ping" />}
                                                     </div>
                                                 ) : (
-                                                    <button onClick={() => claimSeat(i)} className="w-24 h-24 rounded-full border-2 border-dashed border-white/10 flex flex-col items-center justify-center opacity-30 hover:opacity-100 transition-opacity bg-black/20">
-                                                        <span className="text-xs font-bold uppercase tracking-tighter opacity-40">Join Table</span>
-                                                        <span className="text-xl mt-1">🪑</span>
+                                                    <button onClick={() => claimSeat(i)} className="w-20 h-20 rounded-full border-2 border-dashed border-white/10 flex flex-col items-center justify-center opacity-30 hover:opacity-100 transition-opacity">
+                                                        <span className="text-[8px] font-bold uppercase tracking-tighter opacity-40">Seat {i + 1}</span>
                                                     </button>
                                                 )}
                                             </div>
@@ -596,10 +628,10 @@
                             <div className="mt-4 flex flex-col sm:flex-row items-center justify-between w-full h-24 gap-4 px-4 sticky bottom-0">
                                 <div className="glass-panel w-56 h-full rounded-xl flex items-center px-5 gap-4">
                                     <div className="w-10 h-10 rounded bg-yellow-500/10 border border-yellow-500/30 flex items-center justify-center gold-text">
-                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                        <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                                     </div>
                                     <div className="flex flex-col">
-                                        <span className="text-[9px] uppercase font-bold opacity-40 tracking-widest">Total Balance</span>
+                                        <span className="text-[9px] uppercase font-bold opacity-40 tracking-widest">Balance</span>
                                         <span className="text-xl font-bold font-serif-italic tracking-tight">${localBalance.toLocaleString()}</span>
                                     </div>
                                 </div>
@@ -608,33 +640,29 @@
                                     {syncState.status === 'betting' && mySeat !== -1 && syncState.players[mySeat]?.status === 'idle' ? (
                                         <div className="flex gap-2">
                                             {[100, 500, 1000, 5000].map(val => (
-                                                <div key={val} onClick={() => placeBet(val)} className={`bet-chip ${val === 100 ? 'chip-100' : val === 500 ? 'chip-500' : val === 1000 ? 'chip-1k' : 'chip-5k'}`}>${val}</div>
+                                                <div key={val} onClick={() => placeBet(val)} className={`bet-chip cursor-pointer ${val === 100 ? 'chip-100' : val === 500 ? 'chip-500' : val === 1000 ? 'chip-1k' : 'chip-5k'}`}>${val}</div>
                                             ))}
                                         </div>
                                     ) : (
                                         <div className="flex flex-1 gap-2 h-16">
-                                            <button onClick={hit} disabled={syncState.turn !== mySeat} className="glass-button flex-1 rounded-lg flex flex-col items-center justify-center disabled:opacity-20">
-                                                <span className="font-bold text-sm tracking-widest gold-text">HIT</span>
-                                            </button>
-                                            <button onClick={stand} disabled={syncState.turn !== mySeat} className="glass-button flex-1 rounded-lg flex flex-col items-center justify-center disabled:opacity-20">
-                                                <span className="font-bold text-sm tracking-widest text-white">STAND</span>
-                                            </button>
+                                            <button onClick={hit} disabled={syncState.turn !== mySeat} className="glass-button flex-1 rounded-lg flex items-center justify-center disabled:opacity-20 font-bold text-sm gold-text">HIT</button>
+                                            <button onClick={stand} disabled={syncState.turn !== mySeat} className="glass-button flex-1 rounded-lg flex items-center justify-center disabled:opacity-20 font-bold text-sm text-white">STAND</button>
                                         </div>
                                     )}
                                 </div>
 
                                 <div className="w-56 h-full flex flex-col items-end justify-center px-4">
                                     <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden mb-2">
-                                        <div className="h-full bg-gold" style={{ width: `${(localXp / (100 * localLevel)) * 100}%` }}></div>
+                                        <div className="h-full bg-gold" style={{ width: `${(localXp / (localLevel * 100)) * 100}%` }}></div>
                                     </div>
-                                    <span className="text-[8px] uppercase opacity-40 font-bold tracking-widest">Niveau {localLevel} • XP {localXp}/{localLevel * 100}</span>
+                                    <span className="text-[8px] uppercase opacity-40 font-bold tracking-widest leading-none">Niveau {localLevel} • XP {localXp}/{localLevel * 100}</span>
                                 </div>
                             </div>
                         </main>
 
                         <aside className="hidden lg:flex w-72 bg-[#121417] border-l border-white/5 flex-col pt-6 shrink-0 z-40">
                             <div className="px-6 flex justify-between items-center mb-6">
-                                <h3 className="text-xs font-bold tracking-[0.2em] opacity-40 uppercase italic">Multiplayer Lobby</h3>
+                                <h3 className="text-xs font-bold tracking-[0.2em] opacity-40 uppercase italic">{mode === 'solo' ? 'Local Session' : 'Multiplayer Lobby'}</h3>
                             </div>
                             <div className="flex-1 overflow-y-auto px-6 space-y-3">
                                 {syncState.players.map((p, i) => p && (
@@ -647,7 +675,6 @@
                                     </div>
                                 ))}
                             </div>
-                            <div className="p-4 bg-black/40 text-[8px] text-center opacity-30 italic">P2P Synced via GunDB</div>
                         </aside>
                     </div>
                 </div>
