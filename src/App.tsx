@@ -28,7 +28,7 @@ const BlackjackApp: React.FC = () => {
 
         // Check for player Blackjack
         if (isBlackjack(playerHand)) {
-            setGameState(prev => ({
+            setGameState((prev: GameState) => ({
                 ...prev,
                 deck: currentDeck,
                 playerHand,
@@ -41,7 +41,7 @@ const BlackjackApp: React.FC = () => {
             return;
         }
 
-        setGameState(prev => ({
+        setGameState((prev: GameState) => ({
             ...prev,
             deck: currentDeck,
             playerHand,
@@ -62,7 +62,7 @@ const BlackjackApp: React.FC = () => {
         const score = calculateScore(newHand);
 
         if (score > 21) {
-            setGameState(prev => ({
+            setGameState((prev: GameState) => ({
                 ...prev,
                 deck: currentDeck,
                 playerHand: newHand,
@@ -70,7 +70,7 @@ const BlackjackApp: React.FC = () => {
                 message: 'Bust! Dealer wins.',
             }));
         } else {
-            setGameState(prev => ({
+            setGameState((prev: GameState) => ({
                 ...prev,
                 deck: currentDeck,
                 playerHand: newHand,
@@ -131,7 +131,7 @@ const BlackjackApp: React.FC = () => {
 
             {/* Table Area */}
             <div className="flex-1 flex flex-col items-center justify-center relative py-12">
-                <div className="absolute inset-0 bg-radial-gradient from-[#0d2b0d] to-[#050f05] rounded-[200px] border-8 border-[#3d2b1f] shadow-2xl opacity-80" />
+                <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-[#0d2b0d] to-[#050f05] rounded-[200px] border-8 border-[#3d2b1f] shadow-2xl opacity-80" />
 
                 {/* Dealer Hand */}
                 <div className="z-10 text-center mb-12">
