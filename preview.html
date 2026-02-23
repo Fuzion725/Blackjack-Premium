@@ -185,41 +185,6 @@
             --table-border: #1e3a8a;
         }
 
-        .theme-sakura {
-            --table-green: #4d0a25;
-            --table-dark: #1a040d;
-            --table-border: #f472b6;
-        }
-
-        .theme-fuji {
-            --table-green: #0a234d;
-            --table-dark: #040d1a;
-            --table-border: #60a5fa;
-        }
-
-        .theme-emerald {
-            --table-green: #064e3b;
-            --table-dark: #022c22;
-            --table-border: #10b981;
-        }
-
-        .theme-midnight {
-            --table-green: #1e1b4b;
-            --table-dark: #0f172a;
-            --table-border: #6366f1;
-        }
-
-        .theme-volcano {
-            --table-green: #450a0a;
-            --table-dark: #18181b;
-            --table-border: #ef4444;
-        }
-
-        .theme-arctic {
-            --table-green: #0c4a6e;
-            --table-dark: #f8fafc;
-            --table-border: #0ea5e9;
-        }
 
         :root {
             --table-border: #1a100a;
@@ -262,29 +227,7 @@
             border: 2px solid #93c5fd !important;
         }
 
-        .card-emerald {
-            background: linear-gradient(135deg, #d1fae5 0%, #059669 100%) !important;
-            color: #064e3b !important;
-            border: 2px solid #34d399 !important;
-        }
 
-        .card-midnight {
-            background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%) !important;
-            color: #e0e7ff !important;
-            border: 2px solid #4338ca !important;
-        }
-
-        .card-volcano {
-            background: linear-gradient(135deg, #450a0a 0%, #dc2626 100%) !important;
-            color: #fef2f2 !important;
-            border: 2px solid #ef4444 !important;
-        }
-
-        .card-arctic {
-            background: linear-gradient(135deg, #f0f9ff 0%, #0ea5e9 100%) !important;
-            color: #0c4a6e !important;
-            border: 2px solid #7dd3fc !important;
-        }
 
         /* Premium Boutique Effects */
         @keyframes floatCard {
@@ -404,21 +347,8 @@
                 { id: 'skin_gold', theme: 'gold', name: 'Gold Edition', type: 'card', price: 50000, desc: 'Un look luxueux pour vos cartes.' },
                 { id: 'skin_carbon', theme: 'carbon', name: 'Carbon Fiber', type: 'card', price: 75000, desc: 'Design moderne et furtif.' },
                 { id: 'skin_royal', theme: 'royal', name: 'Royal Purple', type: 'card', price: 100000, desc: 'La pourpre des empereurs.' },
-                { id: 'skin_sakura', theme: 'sakura', name: 'Sakura Petal', type: 'card', price: 80000, desc: 'La douceur du printemps japonais.' },
-                { id: 'skin_fuji', theme: 'fuji', name: 'Mount Fuji', type: 'card', price: 120000, desc: 'La majesté du mont sacré.' },
                 { id: 'tapis_red', theme: 'red', name: 'Vegas Red', type: 'tapis', price: 40000, desc: 'L\'intensité de Las Vegas.', color: '#3d0d0d' },
                 { id: 'tapis_blue', theme: 'blue', name: 'Sapphire Blue', type: 'tapis', price: 40000, desc: 'L\'élégance du bleu saphir.', color: '#0d1e3d' },
-                { id: 'tapis_gold', theme: 'gold', name: 'Midas Gold', type: 'tapis', price: 150000, desc: 'Jouez sur de l\'or massif.', color: '#4a3701' },
-                { id: 'tapis_sakura', theme: 'sakura', name: 'Zen Garden', type: 'tapis', price: 90000, desc: 'La sérénité des cerisiers en fleurs.', color: '#4d0a25' },
-                { id: 'tapis_fuji', theme: 'fuji', name: 'Great Wave', type: 'tapis', price: 110000, desc: 'La puissance de l\'océan Pacifique.', color: '#0a234d' },
-                { id: 'skin_emerald', theme: 'emerald', name: 'Emerald Gem', type: 'card', price: 150000, desc: 'L\'éclat pur de l\'émeraude.' },
-                { id: 'skin_midnight', theme: 'midnight', name: 'Midnight Sky', type: 'card', price: 180000, desc: 'Le mystère de la nuit étoilée.' },
-                { id: 'skin_volcano', theme: 'volcano', name: 'Volcano Core', type: 'card', price: 200000, desc: 'La puissance du magma en fusion.' },
-                { id: 'skin_arctic', theme: 'arctic', name: 'Arctic Frost', type: 'card', price: 250000, desc: 'La fraîcheur du grand nord.' },
-                { id: 'tapis_emerald', theme: 'emerald', name: 'Emerald Forest', type: 'tapis', price: 130000, desc: 'Une table dans la jungle profonde.', color: '#064e3b' },
-                { id: 'tapis_midnight', theme: 'midnight', name: 'Cosmic Void', type: 'tapis', price: 160000, desc: 'Aux confins de l\'univers.', color: '#1e1b4b' },
-                { id: 'tapis_volcano', theme: 'volcano', name: 'Magma Chamber', type: 'tapis', price: 190000, desc: 'Défiez le dealer en enfer.', color: '#450a0a' },
-                { id: 'tapis_arctic', theme: 'arctic', name: 'Glacier Edge', type: 'tapis', price: 220000, desc: 'Jouez sur la glace éternelle.', color: '#0c4a6e' },
             ];
             const buy = (item) => {
                 if (balance < item.price) return;
