@@ -9,6 +9,7 @@
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
     <link
         href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:ital,wght@1,700&display=swap"
         rel="stylesheet">
@@ -155,6 +156,11 @@
         .logo-gear {
             animation: rotateGear 10s linear infinite;
         }
+
+        /* Auth Container */
+        #google-login-container iframe {
+            margin: auto;
+        }
     </style>
 </head>
 
@@ -162,7 +168,7 @@
     <div id="root" class="h-full w-full"></div>
 
     <script type="text/babel">
-        const { useState, useEffect, useMemo } = React;
+        const { useState, useEffect, useCallback, useMemo } = React;
 
         // --- Logic Engine ---
         const SUITS = [
@@ -193,6 +199,16 @@
             return s;
         };
 
+        const decodeJwt = (token) => {
+            try {
+                const base64Url = token.split('.')[1];
+                const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+                return JSON.parse(window.atob(base64));
+            } catch (e) {
+                return null;
+            }
+        };
+
         // --- UI Fragments ---
 
         const Card = ({ card, faceDown, index }) => (
@@ -220,21 +236,90 @@
         );
 
         function App() {
-            const [game, setGame] = useState({
-                deck: createDeck(),
-                player: [],
-                dealer: [],
-                balance: 250000,
-                bet: 0,
-                status: 'betting', // betting, playing, results
-                msg: '',
-                history: [
-                    { id: 482, result: 'Player Wins', amount: 15000, win: true },
-                    { id: 481, result: 'Dealer Wins', amount: 10000, win: false },
-                    { id: 480, result: 'Player Wins', amount: 20000, win: true }
-                ]
+            // --- User & Persistence State ---
+            const [user, setUser] = useState(() => {
+                const savedUser = localStorage.getItem('blackjack_user');
+                return savedUser ? JSON.parse(savedUser) : null;
             });
 
+            const [game, setGame] = useState(() => {
+                const savedGame = localStorage.getItem('blackjack_game_state');
+                if (savedGame) {
+                    const parsed = JSON.parse(savedGame);
+                    return { ...parsed, deck: createDeck(), player: [], dealer: [], status: 'betting', msg: '' };
+                }
+                return {
+                    deck: createDeck(),
+                    player: [],
+                    dealer: [],
+                    balance: 250000,
+                    level: 1,
+                    xp: 0,
+                    bet: 0,
+                    status: 'betting',
+                    msg: '',
+                    history: []
+                };
+            });
+
+            // Sync with LocalStorage
+            useEffect(() => {
+                localStorage.setItem('blackjack_game_state', JSON.stringify({
+                    balance: game.balance,
+                    level: game.level,
+                    xp: game.xp,
+                    history: game.history
+                }));
+            }, [game.balance, game.level, game.xp, game.history]);
+
+            useEffect(() => {
+                if (user) {
+                    localStorage.setItem('blackjack_user', JSON.stringify(user));
+                } else {
+                    localStorage.removeItem('blackjack_user');
+                }
+            }, [user]);
+
+            // Google Auth Handler
+            useEffect(() => {
+                /* global google */
+                if (typeof google !== 'undefined') {
+                    google.accounts.id.initialize({
+                        client_id: "725547674251-5o9geun4o0s39023475923057.apps.googleusercontent.com", // Placeholder
+                        callback: handleCredentialResponse
+                    });
+                    if (!user) {
+                        google.accounts.id.renderButton(
+                            document.getElementById("google-login-container"),
+                            { theme: "outline", size: "large", shape: "pill", text: "continue_with" }
+                        );
+                    }
+                }
+            }, [user]);
+
+            const handleCredentialResponse = (response) => {
+                const profile = decodeJwt(response.credential);
+                if (profile) {
+                    setUser({
+                        name: profile.name,
+                        email: profile.email,
+                        picture: profile.picture
+                    });
+                }
+            };
+
+            const logout = () => {
+                setUser(null);
+                // Trigger re-render of login button
+                setTimeout(() => {
+                    google.accounts.id.renderButton(
+                        document.getElementById("google-login-container"),
+                        { theme: "outline", size: "large", shape: "pill", text: "continue_with" }
+                    );
+                }, 100);
+            };
+
+            // --- Game Actions ---
             const deal = (amount) => {
                 if (amount > game.balance) return;
                 const d = game.deck.length < 10 ? createDeck() : [...game.deck];
@@ -271,18 +356,28 @@
             };
 
             const finishGame = (p, d, res) => {
-                const ps = calculateScore(p);
-                const ds = calculateScore(d);
-                let win = res === 'Player Wins';
-                let push = res === 'Push';
-                let gain = win ? game.bet * 2 : (push ? game.bet : 0);
+                const win = res === 'Player Wins';
+                const push = res === 'Push';
+                const gain = win ? game.bet * 2 : (push ? game.bet : 0);
+                const xpGain = win ? 50 : 10;
 
-                setGame(prev => ({
-                    ...prev,
-                    player: p, dealer: d, status: 'results', msg: res,
-                    balance: prev.balance + gain,
-                    history: [{ id: prev.history[0].id + 1, result: res, amount: win ? game.bet : (push ? 0 : game.bet), win, push }, ...prev.history].slice(0, 10)
-                }));
+                setGame(prev => {
+                    let newXp = prev.xp + xpGain;
+                    let newLevel = prev.level;
+                    if (newXp >= 100 * prev.level) {
+                        newXp %= (100 * prev.level);
+                        newLevel += 1;
+                    }
+
+                    return {
+                        ...prev,
+                        player: p, dealer: d, status: 'results', msg: res,
+                        balance: prev.balance + gain,
+                        xp: newXp,
+                        level: newLevel,
+                        history: [{ id: Date.now(), result: res, amount: win ? game.bet : (push ? 0 : game.bet), win, push }, ...prev.history].slice(0, 10)
+                    };
+                });
             };
 
             return (
@@ -297,17 +392,24 @@
                         </div>
 
                         <div className="flex items-center gap-4">
-                            <div className="hidden md:flex items-center gap-2 bg-yellow-500/10 border border-yellow-500/30 px-3 py-1.5 rounded-full text-[10px] font-bold gold-text">
+                            {!user ? (
+                                <div id="google-login-container"></div>
+                            ) : (
+                                <div className="flex items-center gap-3 bg-white/5 border border-white/10 pl-1 pr-3 py-1 rounded-full">
+                                    <div className="w-8 h-8 rounded-full overflow-hidden border border-gold/30">
+                                        <img src={user.picture} className="w-full h-full object-cover" />
+                                    </div>
+                                    <div className="flex flex-col">
+                                        <span className="text-[10px] font-bold opacity-80 leading-none">{user.name}</span>
+                                        <span className="text-[9px] gold-text font-bold uppercase tracking-widest mt-0.5">Niveau {game.level}</span>
+                                    </div>
+                                    <button onClick={logout} className="ml-2 text-white/30 hover:text-red-400 text-xs">Logout</button>
+                                </div>
+                            )}
+
+                            <div className="hidden lg:flex items-center gap-2 bg-yellow-500/10 border border-yellow-500/30 px-3 py-1.5 rounded-full text-[10px] font-bold gold-text">
                                 <div className="w-2 h-2 rounded-full bg-yellow-500 shadow-[0_0_8px_gold]" />
                                 VIP Table 007
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <button className="p-2 hover:bg-white/5 rounded-lg text-white/60">⚙</button>
-                                <button className="p-2 hover:bg-white/5 rounded-lg text-white/60">?</button>
-                                <button className="p-2 hover:bg-white/5 rounded-lg text-white/60">exit</button>
-                                <div className="w-10 h-10 rounded-full border-2 border-yellow-500/50 overflow-hidden ml-2 shadow-lg">
-                                    <img src="https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=100&h=100&fit=crop" className="w-full h-full object-cover" />
-                                </div>
                             </div>
                         </div>
                     </header>
@@ -316,14 +418,13 @@
                         {/* Table Area */}
                         <main className="flex-1 relative flex flex-col p-4">
                             <div className="flex-1 table-felt rounded-[100px] border-[14px] border-[#1a100a] relative flex flex-col items-center justify-between py-12 px-8 overflow-hidden">
-                                {/* Table Decorative BG elements */}
                                 <div className="absolute inset-0 border-[2px] border-yellow-500/5 m-12 rounded-[100px] pointer-events-none" />
 
                                 {/* Dealer Part */}
                                 <div className="flex flex-col items-center z-10">
-                                    <div className="flex gap-3 mb-6">
+                                    <div className="flex gap-3 mb-6 min-h-[128px]">
                                         {game.dealer.map((c, i) => <Card key={i} card={c} faceDown={game.status === 'playing' && i === 1} index={i} />)}
-                                        {game.dealer.length === 0 && <div className="w-24 h-32 border-2 border-white/5 rounded-md" />}
+                                        {game.dealer.length === 0 && <div className="w-24 h-32 border-2 border-white/5 rounded-md opacity-20" />}
                                     </div>
                                     <div className="bg-black/60 px-6 py-2 rounded-full border border-yellow-500/40 text-[10px] uppercase font-bold tracking-[0.2em] gold-text">
                                         Dealer stands on 17
@@ -332,32 +433,22 @@
 
                                 {/* Center Branding */}
                                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none">
-                                    <h2 className="text-8xl font-serif-italic shadow-sm gold-text opacity-30 tracking-tight skew-x-[-10deg]">BLACKJACK</h2>
-                                    <p className="text-xs uppercase tracking-[0.5em] gold-text opacity-40 mt-4">— Insurance Pays 2 to 1 —</p>
+                                    <h2 className="text-6xl sm:text-8xl font-serif-italic shadow-sm gold-text opacity-30 tracking-tight skew-x-[-10deg] select-none">BLACKJACK</h2>
+                                    <p className="text-[10px] sm:text-xs uppercase tracking-[0.5em] gold-text opacity-40 mt-4">— Insurance Pays 2 to 1 —</p>
                                 </div>
 
                                 {/* Player Part */}
                                 <div className="flex flex-col items-center z-10 w-full relative">
-                                    {/* Player Seats (Empty circles from screenshot) */}
-                                    <div className="absolute bottom-0 w-full flex justify-between px-20 -mb-2 opacity-20 transform translate-y-16">
-                                        <div className="w-16 h-16 rounded-full border-2 border-dashed border-white flex items-center justify-center text-[10px]">EMPTY</div>
-                                        <div className="w-16 h-16 rounded-full border-2 border-dashed border-white"></div>
-                                        <div className="w-16 h-16 rounded-full border-2 border-dashed border-white"></div>
-                                        <div className="w-16 h-16 rounded-full border-2 border-dashed border-white flex items-center justify-center text-[10px]">EMPTY</div>
-                                    </div>
-
-                                    {/* Active Hand */}
-                                    <div className="flex gap-3 mb-4 scale-110">
+                                    <div className="flex gap-3 mb-4 scale-110 min-h-[128px]">
                                         {game.player.map((c, i) => <Card key={i} card={c} index={i + 2} />)}
+                                        {game.player.length === 0 && <div className="w-24 h-32 border-2 border-white/5 rounded-md opacity-20" />}
                                     </div>
 
-                                    {/* Betting UI / Result Message */}
                                     <div className="flex flex-col items-center">
-                                        {game.status === 'results' && <p className="text-2xl font-bold mb-4 drop-shadow-lg gold-text tracking-widest uppercase animate-bounce">{game.msg}</p>}
+                                        {game.status === 'results' && <p className="text-xl sm:text-2xl font-bold mb-4 drop-shadow-lg gold-text tracking-widest uppercase animate-bounce">{game.msg}</p>}
 
-                                        {/* Chips Tray */}
                                         {game.status !== 'playing' && (
-                                            <div className="flex flex-col items-center">
+                                            <div className="flex flex-col items-center scale-90 sm:scale-100">
                                                 <div className="flex gap-3 mb-2">
                                                     <div onClick={() => deal(100)} className="bet-chip chip-100">$100</div>
                                                     <div onClick={() => deal(500)} className="bet-chip chip-500">$500</div>
@@ -365,7 +456,7 @@
                                                     <div onClick={() => deal(5000)} className="bet-chip chip-5k">$5K</div>
                                                     <div onClick={() => deal(25000)} className="bet-chip chip-25k">$25K</div>
                                                 </div>
-                                                <div className="bg-yellow-500/20 px-4 py-1 rounded text-[10px] font-bold gold-text uppercase tracking-widest">Your Bet</div>
+                                                <div className="bg-yellow-500/20 px-4 py-1 rounded text-[10px] font-bold gold-text uppercase tracking-widest">Select Bet</div>
                                             </div>
                                         )}
                                     </div>
@@ -373,59 +464,51 @@
                             </div>
 
                             {/* Controls Footer */}
-                            <div className="mt-4 flex items-center justify-between w-full h-24 gap-4 px-4 sticky bottom-0">
+                            <div className="mt-4 flex flex-col sm:flex-row items-center justify-between w-full sm:h-24 gap-4 px-4 pb-4 sm:pb-0 sticky bottom-0">
                                 {/* Balance */}
-                                <div className="glass-panel w-56 h-full rounded-xl flex items-center px-5 gap-4">
+                                <div className="glass-panel w-full sm:w-56 h-16 sm:h-full rounded-xl flex items-center px-5 gap-4">
                                     <div className="w-10 h-10 rounded bg-[#eebd2b1A] border border-yellow-500/30 flex items-center justify-center text-xl gold-text shadow-inner">
-                                        🗃
+                                        �
                                     </div>
                                     <div className="flex flex-col">
                                         <span className="text-[10px] uppercase font-bold opacity-40">Total Balance</span>
-                                        <span className="text-2xl font-bold font-serif-italic tracking-tight">${game.balance.toLocaleString()}</span>
+                                        <span className="text-xl sm:text-2xl font-bold font-serif-italic tracking-tight">${game.balance.toLocaleString()}</span>
                                     </div>
                                 </div>
 
                                 {/* Mid Actions */}
-                                <div className="flex flex-1 items-center justify-center gap-3 h-20">
-                                    <button onClick={hit} disabled={game.status !== 'playing'} className="glass-button w-36 h-full rounded-lg flex flex-col items-center justify-center disabled:opacity-30 disabled:grayscale">
-                                        <span className="font-bold text-md tracking-widest gold-text">HIT</span>
-                                        <span className="text-[8px] opacity-40 uppercase tracking-tighter">Draw Card</span>
+                                <div className="flex flex-1 items-center justify-center gap-3 h-16 sm:h-20 w-full">
+                                    <button onClick={hit} disabled={game.status !== 'playing'} className="glass-button flex-1 sm:w-36 h-full rounded-lg flex flex-col items-center justify-center disabled:opacity-30 disabled:grayscale">
+                                        <span className="font-bold text-sm sm:text-md tracking-widest gold-text">HIT</span>
+                                        <span className="text-[8px] opacity-40 uppercase tracking-tighter hidden sm:block">Draw Card</span>
                                     </button>
-                                    <button onClick={stand} disabled={game.status !== 'playing'} className="glass-button w-36 h-full rounded-lg flex flex-col items-center justify-center disabled:opacity-30 disabled:grayscale">
-                                        <span className="font-bold text-md tracking-widest white">STAND</span>
-                                        <span className="text-[8px] opacity-40 uppercase tracking-tighter">Hold Total</span>
-                                    </button>
-                                    <button onClick={hit} disabled={true} className="glass-button w-36 h-full rounded-lg flex flex-col items-center justify-center opacity-30 grayscale cursor-not-allowed">
-                                        <span className="font-bold text-md tracking-widest gold-text">DOUBLE</span>
-                                        <span className="text-[8px] opacity-40 uppercase tracking-tighter">2X Bet</span>
-                                    </button>
-                                    <button disabled={true} className="glass-button w-36 h-full rounded-lg flex flex-col items-center justify-center opacity-30 grayscale cursor-not-allowed">
-                                        <span className="font-bold text-md tracking-widest text-emerald-400">SPLIT</span>
-                                        <span className="text-[8px] opacity-40 uppercase tracking-tighter">Two Hands</span>
+                                    <button onClick={stand} disabled={game.status !== 'playing'} className="glass-button flex-1 sm:w-36 h-full rounded-lg flex flex-col items-center justify-center disabled:opacity-30 disabled:grayscale">
+                                        <span className="font-bold text-sm sm:text-md tracking-widest text-white">STAND</span>
+                                        <span className="text-[8px] opacity-40 uppercase tracking-tighter hidden sm:block">Hold Total</span>
                                     </button>
                                 </div>
 
-                                {/* Active Bet Info / Chat Trigger Overlay */}
-                                <div className="w-56 h-full flex flex-col items-end justify-center px-4 relative">
-                                    <span className="text-[10px] uppercase opacity-40 font-bold tracking-widest">Active Bet</span>
-                                    <span className="text-3xl font-bold opacity-30">${game.bet.toLocaleString()}</span>
-                                    <div className="absolute inset-0 bg-gradient-to-l from-black/0 to-black/10 pointer-events-none" />
+                                {/* Progress Info */}
+                                <div className="w-full sm:w-56 h-full flex flex-col items-center sm:items-end justify-center px-4">
+                                    <div className="w-full h-1.5 bg-white/5 rounded-full overflow-hidden mb-2">
+                                        <div className="h-full bg-gold shadow-[0_0_10px_gold]" style={{ width: `${(game.xp / (100 * game.level)) * 100}%` }}></div>
+                                    </div>
+                                    <span className="text-[9px] uppercase opacity-40 font-bold tracking-widest">XP to Next LVL</span>
                                 </div>
                             </div>
                         </main>
 
                         {/* Sidebar */}
-                        <aside className="w-80 bg-[#121417] border-l border-white/5 flex flex-col pt-6 shrink-0 z-40">
+                        <aside className="hidden lg:flex w-80 bg-[#121417] border-l border-white/5 flex-col pt-6 shrink-0 z-40">
                             <div className="px-6 flex justify-between items-center mb-6">
                                 <h3 className="text-xs font-bold tracking-[0.2em] opacity-60 uppercase">Table History</h3>
-                                <button className="opacity-40 hover:opacity-100">🕒</button>
                             </div>
 
                             <div className="flex-1 overflow-y-auto px-6 space-y-4">
                                 {game.history.map(h => (
                                     <div key={h.id} className="history-item p-4 rounded-lg flex justify-between items-start">
                                         <div>
-                                            <p className="text-[9px] font-bold opacity-30 uppercase tracking-widest">Hand #{h.id}</p>
+                                            <p className="text-[9px] font-bold opacity-30 uppercase tracking-widest">Hand #{h.id.toString().slice(-4)}</p>
                                             <p className="text-sm font-semibold mt-1">{h.result}</p>
                                         </div>
                                         <div className={`text-sm font-bold mt-3 ${h.win ? 'gold-text' : (h.push ? 'text-gray-400' : 'text-red-500')}`}>
@@ -433,12 +516,12 @@
                                         </div>
                                     </div>
                                 ))}
+                                {game.history.length === 0 && <p className="text-xs opacity-20 italic text-center py-10">No recent activity.</p>}
                             </div>
 
                             <div className="p-4 bg-black/40">
-                                <div className="relative group">
-                                    <input className="w-full bg-[#1e2227] border border-white/10 rounded-lg px-4 py-3 text-xs focus:ring-1 focus:ring-yellow-500/50 outline-none pr-10" placeholder="Type to chat..." />
-                                    <button className="absolute right-3 top-3.5 text-yellow-500/50 group-focus-within:text-yellow-500">➤</button>
+                                <div className="text-center py-2">
+                                    <p className="text-[9px] uppercase gold-text font-bold tracking-[0.2em] opacity-50">Authorized VIP Lounge</p>
                                 </div>
                             </div>
                         </aside>
