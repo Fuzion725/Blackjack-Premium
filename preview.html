@@ -205,9 +205,15 @@
                     </div>
                 ) : (
                     <React.Fragment>
-                        <div className={`text-xl font-bold ${card.suit.color} leading-none`}>{card.rank}<br /><span className="text-sm">{card.suit.sym}</span></div>
-                        <div className={`text-4xl self-center ${card.suit.color}`}>{card.suit.sym}</div>
-                        <div className={`text-xl font-bold ${card.suit.color} rotate-180 leading-none`}>{card.rank}<br /><span className="text-sm">{card.suit.sym}</span></div>
+                        <div className={`text-lg font-bold ${card.suit.color} leading-none flex flex-col items-start`}>
+                            <span>{card.rank}</span>
+                            <span className="text-xs">{card.suit.sym}</span>
+                        </div>
+                        <div className={`text-3xl self-center ${card.suit.color} opacity-80`}>{card.suit.sym}</div>
+                        <div className={`text-lg font-bold ${card.suit.color} rotate-180 leading-none flex flex-col items-start`}>
+                            <span>{card.rank}</span>
+                            <span className="text-xs">{card.suit.sym}</span>
+                        </div>
                     </React.Fragment>
                 )}
             </div>
