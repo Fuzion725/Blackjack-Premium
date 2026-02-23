@@ -455,12 +455,6 @@
                             <span className="text-[10px] uppercase tracking-[0.4em] opacity-30 mt-1">Exclusive Collection</span>
                         </div>
                         <div className="flex items-center gap-4">
-                            <button
-                                onClick={() => setBalance(b => b + 500000)}
-                                className="bg-green-500/20 hover:bg-green-500/30 text-green-400 text-[10px] font-black px-4 py-2 rounded-xl border border-green-500/20 transition-all active:scale-95"
-                            >
-                                🎁 CADEAU +$500K
-                            </button>
                             <div className="bg-gold/10 px-6 py-2 rounded-full border border-gold/30 gold-text font-black text-lg shadow-[0_0_30px_rgba(238,189,43,0.1)]">
                                 <span className="opacity-40 text-xs mr-2">$</span>
                                 {balance.toLocaleString()}
@@ -591,6 +585,8 @@
             const [history, setHistory] = useState([]);
             const [ownedItems, setOwnedItems] = useState(['skin_default', 'tapis_default']);
             const [activeSkins, setActiveSkins] = useState({ card: 'default', tapis: 'default' });
+            const [bankruptTime, setBankruptTime] = useState(null);
+            const [timeLeft, setTimeLeft] = useState(0);
 
             // Game State
             const [tableId, setTableId] = useState('Casino-Royale');
@@ -618,12 +614,44 @@
                     setHistory(saved.history || []);
                     if (saved.ownedItems) setOwnedItems(saved.ownedItems);
                     if (saved.activeSkins) setActiveSkins(saved.activeSkins);
+                    if (saved.bankruptTime) setBankruptTime(saved.bankruptTime);
                 }
             }, []);
 
             useEffect(() => {
-                localStorage.setItem('blackjack_game_state', JSON.stringify({ balance, level, xp, stats, history, ownedItems, activeSkins }));
-            }, [balance, level, xp, stats, history, ownedItems, activeSkins]);
+                localStorage.setItem('blackjack_game_state', JSON.stringify({
+                    balance, level, xp, stats, history, ownedItems, activeSkins, bankruptTime
+                }));
+            }, [balance, level, xp, stats, history, ownedItems, activeSkins, bankruptTime]);
+
+            // Bankrupt Recovery Logic
+            useEffect(() => {
+                if (balance <= 0 && !bankruptTime) {
+                    const start = Date.now();
+                    setBankruptTime(start);
+                    // Save immediately to ensure persistence
+                    const current = JSON.parse(localStorage.getItem('blackjack_game_state')) || {};
+                    localStorage.setItem('blackjack_game_state', JSON.stringify({ ...current, bankruptTime: start, balance: 0 }));
+                } else if (balance > 0 && bankruptTime) {
+                    setBankruptTime(null);
+                }
+            }, [balance]);
+
+            useEffect(() => {
+                if (!bankruptTime) { setTimeLeft(0); return; }
+                const interval = setInterval(() => {
+                    const now = Date.now();
+                    const passed = now - bankruptTime;
+                    const duration = 15 * 60 * 1000;
+                    const remaining = Math.max(0, duration - passed);
+                    setTimeLeft(remaining);
+                    if (remaining === 0) {
+                        setBalance(b => b + 1000);
+                        setBankruptTime(null);
+                    }
+                }, 1000);
+                return () => clearInterval(interval);
+            }, [bankruptTime]);
 
             useEffect(() => {
                 if (mode === 'multiplayer' && view === 'game') {
@@ -665,7 +693,8 @@
                     setGameState(prev => {
                         const next = { ...prev, ...patch };
                         // Trigger Bot if it's his turn in solo
-                        if (next.turn === 1 && next.status === 'playing') {
+                        const botIdx = next.players.findIndex(p => p && p.name === 'Bot VIP');
+                        if (botIdx !== -1 && next.turn === botIdx && next.status === 'playing') {
                             setTimeout(() => botAction(next), 1000);
                         }
                         return next;
@@ -679,16 +708,27 @@
                 if (mySeat !== -1) return; // Prevent joining multiple seats
                 if (!user && mode === 'multiplayer') return triggerLogin();
                 const players = [...gameState.players];
-                const profile = user || { name: 'Player 1', picture: 'https://cdn-icons-png.flaticon.com/512/149/149071.png' };
+                const profile = user || { name: 'Joueur VIP', picture: 'https://cdn-icons-png.flaticon.com/512/149/149071.png' };
+
                 players[i] = {
                     name: profile.name,
                     picture: profile.picture,
                     hands: [{ cards: [], bet: 0, status: 'idle', result: '' }],
                     activeHandIdx: 0
                 };
+
                 if (mode === 'solo') {
-                    players[1] = { name: 'Bot VIP', picture: 'https://cdn-icons-png.flaticon.com/512/4712/4712035.png', hands: [{ cards: [], bet: 1000, status: 'ready', result: '' }], activeHandIdx: 0 };
+                    // Place Bot in a different seat (try 2, then 1, then 0)
+                    const botSeats = [2, 1, 0].filter(s => s !== i);
+                    const botSeat = botSeats[0];
+                    players[botSeat] = {
+                        name: 'Bot VIP',
+                        picture: 'https://cdn-icons-png.flaticon.com/512/4712/4712035.png',
+                        hands: [{ cards: [], bet: 1000, status: 'ready', result: '' }],
+                        activeHandIdx: 0
+                    };
                 }
+
                 setMySeat(i);
                 updateState({ players, status: 'betting' });
             };
@@ -815,19 +855,70 @@
             };
 
             const botAction = (state) => {
-                const bot = state.players[1];
-                const hand = bot.hands[0];
+                const botIdx = state.players.findIndex(p => p && p.name === 'Bot VIP');
+                if (botIdx === -1) return;
+
+                const bot = state.players[botIdx];
+                const handIdx = bot.activeHandIdx || 0;
+                const hand = bot.hands[handIdx];
                 const score = calculateScore(hand.cards);
+                const dealerUpCard = state.dealerCards[0];
+
+                // AI Logic: Basic Strategy
+                // 1. SPLIT (Aces or 8s)
+                if (hand.cards.length === 2 && hand.cards[0].rank === hand.cards[1].rank) {
+                    const rank = hand.cards[0].rank;
+                    if (rank === 'A' || rank === '8') {
+                        // Split logic
+                        const s = [...state.shoe];
+                        const h1 = { cards: [hand.cards[0], s.pop()], bet: hand.bet, status: 'playing', result: '' };
+                        const h2 = { cards: [hand.cards[1], s.pop()], bet: hand.bet, status: 'playing', result: '' };
+                        bot.hands = [h1, h2];
+                        updateState({ players: state.players, shoe: s });
+                        setTimeout(() => botAction(stateRef.current), 1500);
+                        return;
+                    }
+                }
+
+                // 2. DOUBLE (9, 10, 11)
+                if (hand.cards.length === 2 && score >= 9 && score <= 11 && dealerUpCard.value < 7) {
+                    const s = [...state.shoe];
+                    hand.cards.push(s.pop());
+                    hand.bet *= 2;
+                    hand.status = calculateScore(hand.cards) > 21 ? 'bust' : 'stand';
+                    updateState({ players: state.players, shoe: s });
+                    setTimeout(() => advanceBotTurn(botIdx, state.players), 1200);
+                    return;
+                }
+
+                // 3. HIT / STAND
                 if (score < 17) {
                     const s = [...state.shoe];
                     hand.cards.push(s.pop());
-                    if (calculateScore(hand.cards) > 21) hand.status = 'bust';
+                    const newScore = calculateScore(hand.cards);
+                    if (newScore > 21) hand.status = 'bust';
+
                     updateState({ players: state.players, shoe: s });
-                    if (hand.status === 'playing') setTimeout(() => botAction(stateRef.current), 1000);
-                    else advanceTurn(1, state.players);
+
+                    if (hand.status === 'playing') {
+                        setTimeout(() => botAction(stateRef.current), 1200);
+                    } else {
+                        advanceBotTurn(botIdx, state.players);
+                    }
                 } else {
                     hand.status = 'stand';
-                    advanceTurn(1, state.players);
+                    advanceBotTurn(botIdx, state.players);
+                }
+            };
+
+            const advanceBotTurn = (botIdx, players) => {
+                const bot = players[botIdx];
+                if (bot.activeHandIdx < bot.hands.length - 1) {
+                    bot.activeHandIdx++;
+                    updateState({ players });
+                    setTimeout(() => botAction(stateRef.current), 1000);
+                } else {
+                    advanceTurn(botIdx, players);
                 }
             };
 
@@ -917,7 +1008,17 @@
                     setWinnings(null);
                     const resetPlayers = stateRef.current.players.map(p => {
                         if (!p) return null;
-                        return { ...p, hands: [{ cards: [], bet: p.name === 'Bot VIP' ? 1000 : 0, status: p.name === 'Bot VIP' ? 'ready' : 'idle', result: '' }], activeHandIdx: 0 };
+                        const isBot = p.name === 'Bot VIP';
+                        return {
+                            ...p,
+                            hands: [{
+                                cards: [],
+                                bet: isBot ? 1000 : 0,
+                                status: isBot ? 'ready' : 'idle',
+                                result: ''
+                            }],
+                            activeHandIdx: 0
+                        };
                     });
                     updateState({ players: resetPlayers, dealerCards: [], turn: -1, status: 'betting', message: 'Place your Bets' });
                 }, 4500);
@@ -1048,14 +1149,23 @@
                         </div>
 
                         <div className="mt-4 flex flex-col sm:flex-row items-center justify-between w-full h-24 gap-4 px-4">
-                            <div className="glass-panel w-56 h-full rounded-2xl flex items-center px-5 gap-4 shadow-xl">
-                                <div className="w-10 h-10 rounded bg-yellow-500/10 border border-yellow-500/30 flex items-center justify-center gold-text shadow-inner">
+                            <div className="glass-panel w-56 h-full rounded-2xl flex items-center px-5 gap-4 shadow-xl relative overflow-hidden group">
+                                <div className={`w-10 h-10 rounded bg-yellow-500/10 border border-yellow-500/30 flex items-center justify-center gold-text shadow-inner ${bankruptTime ? 'bg-red-500/10 border-red-500/30 text-red-500' : ''}`}>
                                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                                 </div>
                                 <div className="flex flex-col">
-                                    <span className="text-[9px] uppercase font-bold opacity-30 tracking-widest">Total Credit</span>
-                                    <span className="text-2xl font-bold font-serif-italic tracking-tight">${balance.toLocaleString()}</span>
+                                    <span className="text-[9px] uppercase font-bold opacity-30 tracking-widest">{bankruptTime ? '🕒 Récupération' : 'Cagnotte Totale'}</span>
+                                    {bankruptTime ? (
+                                        <span className="text-xl font-bold text-red-400 font-mono tracking-tighter">
+                                            {Math.floor(timeLeft / 60000)}:{(Math.floor((timeLeft % 60000) / 1000)).toString().padStart(2, '0')}
+                                        </span>
+                                    ) : (
+                                        <span className="text-2xl font-bold font-serif-italic tracking-tight">${balance.toLocaleString()}</span>
+                                    )}
                                 </div>
+                                {bankruptTime && (
+                                    <div className="absolute inset-0 bg-red-500/5 animate-pulse pointer-events-none"></div>
+                                )}
                             </div>
 
                             <div className="flex-1 flex items-center justify-center gap-2 max-w-xl">
