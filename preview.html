@@ -281,7 +281,10 @@
         const isBlackjack = (cards) => cards.length === 2 && calculateScore(cards) === 21;
 
         // --- Demo Cards for Preview ---
-        const DEMO_CARD = { rank: 'A', suit: SUITS[3], value: 11 };
+        const DEMO_CARDS = [
+            { rank: 'A', suit: { name: 'spades', sym: '♠', color: 'text-slate-900' }, value: 11 },
+            { rank: 'K', suit: { name: 'hearts', sym: '♥', color: 'text-red-500' }, value: 10 }
+        ];
 
         // --- GunDB Integration ---
         const gun = Gun(['https://gun-manhattan.herokuapp.com/gun']);
@@ -289,29 +292,20 @@
         // --- Components ---
 
         const Card = ({ card, faceDown, index, mini = false, skin = 'default', animate = true }) => {
-            const skinClass = skin !== 'default' ? `card-${skin}` : '';
+            const skinClass = skin !== 'default' ? `card-${skin}` : 'bg-white';
             return (
                 <div
-                    className={`${mini ? 'w-12 h-16 sm:w-16 sm:h-20 -ml-6 first:ml-0' : 'w-20 h-28 sm:w-24 sm:h-32'} ${skin === 'default' ? 'bg-white' : ''} rounded shadow-2xl flex flex-col p-2 justify-between border border-slate-200 ${animate ? 'card-anim' : ''} relative ${skinClass}`}
+                    className={`${mini ? 'w-12 h-16 sm:w-16 sm:h-20 -ml-6 first:ml-0' : 'w-20 h-28 sm:w-24 sm:h-32'} rounded shadow-2xl flex flex-col p-2 justify-between border border-slate-200 ${animate ? 'card-anim' : ''} relative ${skinClass}`}
                     style={{ animationDelay: animate ? `${index * 0.1}s` : '0s' }}
                 >
                     {faceDown ? (
-                        <div className={`w-full h-full rounded-[2px] flex items-center justify-center border ${skin === 'default' ? 'bg-[#1e1b4b] border-[#eebd2b]' : 'bg-black/40 border-white/20 shadow-inner'}`}>
-                            {skin === 'gold' && <div className="text-white text-xl drop-shadow-lg">★</div>}
-                            {skin === 'carbon' && <div className="text-white opacity-20 text-xl font-black">C</div>}
-                            {skin === 'royal' && <div className="text-gold text-xl drop-shadow-md">♕</div>}
-                            {skin === 'sakura' && <div className="text-pink-300 text-xl drop-shadow-md">🌸</div>}
-                            {skin === 'fuji' && <div className="text-blue-300 text-xl drop-shadow-md">🗻</div>}
-                            {skin === 'default' && <div className="text-yellow-600 opacity-40">❖</div>}
+                        <div className={`w-full h-full rounded-[2px] flex items-center justify-center border ${skin === 'default' ? 'bg-[#1e1b4b] border-[#eebd2b]' : 'bg-black/30 border-white/10'}`}>
+                            <span className="text-xl">{skin === 'gold' ? '★' : skin === 'carbon' ? '❖' : skin === 'royal' ? '♕' : skin === 'sakura' ? '🌸' : skin === 'fuji' ? '🗻' : '❖'}</span>
                         </div>
                     ) : (
-                        <React.Fragment>
+                        <div className="h-full flex flex-col justify-between">
                             <div className={`${mini ? 'text-[10px]' : 'text-lg'} font-bold ${card.suit.color} leading-none flex flex-col ${skin !== 'default' ? 'text-current' : ''}`}>
-                                <div className="flex items-center gap-1">
-                                    <span>{card.rank}</span>
-                                    {skin === 'sakura' && <span className="text-[8px]">🌸</span>}
-                                    {skin === 'fuji' && <span className="text-[8px]">🗻</span>}
-                                </div>
+                                <span>{card.rank}</span>
                                 <span className={mini ? 'text-[8px]' : 'text-xs'}>{card.suit.sym}</span>
                             </div>
                             <div className={`${mini ? 'text-lg' : 'text-3xl'} self-center ${card.suit.color} opacity-80 ${skin !== 'default' ? 'text-current' : ''}`}>{card.suit.sym}</div>
@@ -319,7 +313,7 @@
                                 <span>{card.rank}</span>
                                 <span className={mini ? 'text-[8px]' : 'text-xs'}>{card.suit.sym}</span>
                             </div>
-                        </React.Fragment>
+                        </div>
                     )}
                 </div>
             );
@@ -327,16 +321,16 @@
 
         function Boutique({ user, balance, setBalance, ownedItems, setOwnedItems, activeSkins, setActiveSkins, onBack }) {
             const ITEMS = [
-                { id: 'skin_gold', name: 'Gold Edition', type: 'card', price: 50000, desc: 'Un look luxueux pour vos cartes.', preview: 'gold' },
-                { id: 'skin_carbon', name: 'Carbon Fiber', type: 'card', price: 75000, desc: 'Design moderne et furtif.', preview: 'carbon' },
-                { id: 'skin_royal', name: 'Royal Purple', type: 'card', price: 100000, desc: 'La pourpre des empereurs.', preview: 'royal' },
-                { id: 'skin_sakura', name: 'Sakura Petal', type: 'card', price: 80000, desc: 'La douceur du printemps japonais.', preview: 'sakura' },
-                { id: 'skin_fuji', name: 'Mount Fuji', type: 'card', price: 120000, desc: 'La majesté du mont sacré.', preview: 'fuji' },
-                { id: 'tapis_red', name: 'Vegas Red', type: 'tapis', price: 40000, desc: 'L\'intensité de Las Vegas.', color: '#3d0d0d' },
-                { id: 'tapis_blue', name: 'Sapphire Blue', type: 'tapis', price: 40000, desc: 'L\'élégance du bleu saphir.', color: '#0d1e3d' },
-                { id: 'tapis_gold', name: 'Midas Gold', type: 'tapis', price: 150000, desc: 'Jouez sur de l\'or massif.', color: '#4a3701' },
-                { id: 'tapis_sakura', name: 'Zen Garden', type: 'tapis', price: 90000, desc: 'La sérénité des cerisiers en fleurs.', color: '#4d0a25', theme: 'sakura' },
-                { id: 'tapis_fuji', name: 'Great Wave', type: 'tapis', price: 110000, desc: 'La puissance de l\'océan Pacifique.', color: '#0a234d', theme: 'fuji' },
+                { id: 'skin_gold', theme: 'gold', name: 'Gold Edition', type: 'card', price: 50000, desc: 'Un look luxueux pour vos cartes.' },
+                { id: 'skin_carbon', theme: 'carbon', name: 'Carbon Fiber', type: 'card', price: 75000, desc: 'Design moderne et furtif.' },
+                { id: 'skin_royal', theme: 'royal', name: 'Royal Purple', type: 'card', price: 100000, desc: 'La pourpre des empereurs.' },
+                { id: 'skin_sakura', theme: 'sakura', name: 'Sakura Petal', type: 'card', price: 80000, desc: 'La douceur du printemps japonais.' },
+                { id: 'skin_fuji', theme: 'fuji', name: 'Mount Fuji', type: 'card', price: 120000, desc: 'La majesté du mont sacré.' },
+                { id: 'tapis_red', theme: 'red', name: 'Vegas Red', type: 'tapis', price: 40000, desc: 'L\'intensité de Las Vegas.', color: '#3d0d0d' },
+                { id: 'tapis_blue', theme: 'blue', name: 'Sapphire Blue', type: 'tapis', price: 40000, desc: 'L\'élégance du bleu saphir.', color: '#0d1e3d' },
+                { id: 'tapis_gold', theme: 'gold', name: 'Midas Gold', type: 'tapis', price: 150000, desc: 'Jouez sur de l\'or massif.', color: '#4a3701' },
+                { id: 'tapis_sakura', theme: 'sakura', name: 'Zen Garden', type: 'tapis', price: 90000, desc: 'La sérénité des cerisiers en fleurs.', color: '#4d0a25' },
+                { id: 'tapis_fuji', theme: 'fuji', name: 'Great Wave', type: 'tapis', price: 110000, desc: 'La puissance de l\'océan Pacifique.', color: '#0a234d' },
             ];
 
             const buy = (item) => {
@@ -346,8 +340,7 @@
             };
 
             const equip = (item) => {
-                const themeName = item.theme || item.id.replace('skin_', '').replace('tapis_', '');
-                setActiveSkins(prev => ({ ...prev, [item.type]: themeName }));
+                setActiveSkins(prev => ({ ...prev, [item.type]: item.theme }));
             };
 
             return (
@@ -363,8 +356,7 @@
                     <div className="flex-1 overflow-y-auto p-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto w-full">
                         {ITEMS.map(item => {
                             const isOwned = ownedItems.includes(item.id);
-                            const themeName = item.theme || item.id.replace('skin_', '').replace('tapis_', '');
-                            const isActive = activeSkins[item.type] === themeName;
+                            const isActive = activeSkins[item.type] === item.theme;
                             return (
                                 <div key={item.id} className="glass-panel p-6 rounded-2xl flex flex-col gap-4 relative overflow-hidden group hover:border-gold/50 transition-colors">
                                     <div className="flex justify-between items-start">
@@ -375,22 +367,19 @@
                                         {isActive && <span className="bg-green-500/20 text-green-400 text-[8px] font-bold px-2 py-0.5 rounded-full border border-green-500/30 uppercase">Active</span>}
                                     </div>
 
-                                    <div className="h-44 flex items-center justify-center bg-gradient-to-br from-black/80 to-black/40 rounded-2xl border border-white/10 shadow-2xl relative group-hover:border-gold/50 transition-all overflow-hidden">
+                                    <div className="h-44 flex items-center justify-center bg-[#0a0a0a] rounded-2xl border border-white/5 shadow-inner relative group-hover:border-gold/30 transition-all overflow-hidden">
                                         {item.type === 'card' ? (
-                                            <div className="flex gap-4 items-center scale-90 sm:scale-100 group-hover:scale-110 transition-transform duration-700">
-                                                <Card card={DEMO_CARD} index={0} skin={item.preview} animate={false} />
-                                                <div className="relative">
-                                                    <Card card={DEMO_CARD} index={1} faceDown skin={item.preview} animate={false} />
-                                                    <div className="absolute -top-2 -right-2 bg-gold/20 text-gold text-[8px] font-bold px-1.5 py-0.5 rounded border border-gold/40 shadow-glow">BACK</div>
-                                                </div>
+                                            <div className="flex gap-4 items-center">
+                                                <Card card={DEMO_CARDS[0]} index={0} skin={item.theme} animate={false} />
+                                                <Card card={DEMO_CARDS[1]} index={1} faceDown skin={item.theme} animate={false} />
                                             </div>
                                         ) : (
                                             <div className="w-full h-full relative" style={{ background: `radial-gradient(circle at 50% 30%, ${item.color} 0%, #000 100%)` }}>
-                                                <div className="absolute inset-0 flex items-center justify-center bg-black/10">
-                                                    <div className="text-[12px] font-serif-italic opacity-30 gold-text uppercase tracking-[0.4em] rotate-[-15deg] group-hover:scale-125 transition-transform duration-700">Premium Tapis</div>
+                                                <div className="absolute inset-0 flex items-center justify-center">
+                                                    <div className="text-[10px] gold-text opacity-20 uppercase tracking-[0.4em] rotate-[-15deg]">Style {item.theme}</div>
                                                 </div>
-                                                <div className="absolute bottom-4 right-4 w-12 h-12 rounded-full border border-gold/40 flex items-center justify-center opacity-30 text-2xl group-hover:opacity-100 transition-opacity">
-                                                    {item.id.includes('sakura') ? '🌸' : item.id.includes('fuji') ? '🗻' : '🀄'}
+                                                <div className="absolute bottom-4 right-4 text-2xl opacity-40">
+                                                    {item.theme === 'sakura' ? '🌸' : item.theme === 'fuji' ? '🗻' : '🀄'}
                                                 </div>
                                             </div>
                                         )}
