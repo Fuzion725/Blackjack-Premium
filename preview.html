@@ -141,6 +141,27 @@
             border: 2px solid rgba(238, 189, 43, 0.25);
         }
 
+        .results-overlay {
+            animation: fadeIn 0.5s ease-out forwards;
+            background: radial-gradient(circle at center, rgba(13, 61, 42, 0.95) 0%, rgba(5, 21, 13, 0.98) 100%);
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: scale(0.9);
+            }
+
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        .win-glow {
+            text-shadow: 0 0 20px rgba(238, 189, 43, 0.5);
+        }
+
         .menu-gradient {
             background: radial-gradient(circle at center, #1a1b1e 0%, #0a0b0d 100%);
         }
@@ -280,6 +301,7 @@
                 insuranceAvailable: false
             });
             const [mySeat, setMySeat] = useState(-1);
+            const [winnings, setWinnings] = useState(null); // { amount: number, message: string }
             const stateRef = useRef(gameState);
             stateRef.current = gameState;
 
@@ -532,12 +554,13 @@
                 }
 
                 setTimeout(() => {
+                    setWinnings(null);
                     const resetPlayers = stateRef.current.players.map(p => {
                         if (!p) return null;
                         return { ...p, hands: [{ cards: [], bet: p.name === 'Bot VIP' ? 1000 : 0, status: p.name === 'Bot VIP' ? 'ready' : 'idle', result: '' }], activeHandIdx: 0 };
                     });
                     updateState({ players: resetPlayers, dealerCards: [], turn: -1, status: 'betting', message: 'Place your Bets' });
-                }, 5000);
+                }, 4500);
             };
 
             const resetAndSelectMode = (m) => {
@@ -599,6 +622,29 @@
                                 <h2 className="text-7xl font-serif-italic gold-text skew-x-[-10deg]">BLACKJACK</h2>
                                 <p className="text-xs uppercase tracking-[0.4em] gold-text mt-2 italic">— {gameState.message} —</p>
                             </div>
+
+                            {winnings && (
+                                <div className="absolute inset-0 results-overlay z-50 flex flex-col items-center justify-center rounded-[70px]">
+                                    <h3 className={`text-6xl font-serif-italic mb-2 italic tracking-tighter win-glow ${winnings.net >= 0 ? 'gold-text' : 'text-red-500'}`}>
+                                        {winnings.message}
+                                    </h3>
+                                    <div className="flex flex-col items-center gap-2">
+                                        <div className="bg-black/60 px-8 py-4 rounded-3xl border border-white/10 flex flex-col items-center">
+                                            <span className="text-[10px] uppercase tracking-[0.3em] opacity-40 mb-1">Total payout</span>
+                                            <span className="text-4xl font-bold font-serif-italic gold-text">${winnings.amount.toLocaleString()}</span>
+                                        </div>
+                                        <div className={`text-sm font-bold uppercase tracking-widest ${winnings.net >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                            {winnings.net >= 0 ? `+ $${winnings.net.toLocaleString()}` : `- $${Math.abs(winnings.net).toLocaleString()}`}
+                                        </div>
+                                    </div>
+                                    <div className="mt-8 flex gap-4">
+                                        <div className="w-1.5 h-1.5 rounded-full bg-gold animate-bounce" style={{ animationDelay: '0s' }}></div>
+                                        <div className="w-1.5 h-1.5 rounded-full bg-gold animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                                        <div className="w-1.5 h-1.5 rounded-full bg-gold animate-bounce" style={{ animationDelay: '0.4s' }}></div>
+                                    </div>
+                                    <p className="mt-4 text-[9px] uppercase tracking-[0.5em] opacity-30">Next round starting soon</p>
+                                </div>
+                            )}
 
                             <div className="absolute inset-x-0 bottom-12 flex justify-around px-8 gap-4 h-44">
                                 {[0, 1, 2].map(i => {
