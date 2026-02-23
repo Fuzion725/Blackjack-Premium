@@ -188,6 +188,34 @@
             --table-glow: rgba(59, 130, 246, 0.4);
         }
 
+        .theme-emerald {
+            --table-green: #064e3b;
+            --table-dark: #022c22;
+            --table-border: #10b981;
+            --table-glow: rgba(16, 185, 129, 0.4);
+        }
+
+        .theme-midnight {
+            --table-green: #1e1b4b;
+            --table-dark: #0f172a;
+            --table-border: #6366f1;
+            --table-glow: rgba(99, 102, 241, 0.4);
+        }
+
+        .theme-volcano {
+            --table-green: #450a0a;
+            --table-dark: #1a0505;
+            --table-border: #f97316;
+            --table-glow: rgba(249, 115, 22, 0.4);
+        }
+
+        .theme-arctic {
+            --table-green: #0c4a6e;
+            --table-dark: #082f49;
+            --table-border: #0ea5e9;
+            --table-glow: rgba(14, 165, 233, 0.4);
+        }
+
 
         :root {
             --table-border: #1a100a;
@@ -219,6 +247,34 @@
             color: #eebd2b !important;
             border: 2px solid #8b5cf6 !important;
             box-shadow: 0 0 20px rgba(139, 92, 246, 0.3) !important;
+        }
+
+        .card-emerald {
+            background: linear-gradient(135deg, #059669 0%, #064e3b 50%, #022c22 100%) !important;
+            color: #d1fae5 !important;
+            border: 2px solid #10b981 !important;
+            box-shadow: 0 0 20px rgba(16, 185, 129, 0.3) !important;
+        }
+
+        .card-midnight {
+            background: linear-gradient(135deg, #4338ca 0%, #1e1b4b 50%, #0f172a 100%) !important;
+            color: #e0e7ff !important;
+            border: 2px solid #6366f1 !important;
+            box-shadow: 0 0 20px rgba(99, 102, 241, 0.3) !important;
+        }
+
+        .card-volcano {
+            background: linear-gradient(135deg, #b91c1c 0%, #450a0a 50%, #1a0505 100%) !important;
+            color: #fee2e2 !important;
+            border: 2px solid #f97316 !important;
+            box-shadow: 0 0 20px rgba(249, 115, 22, 0.3) !important;
+        }
+
+        .card-arctic {
+            background: linear-gradient(135deg, #0ea5e9 0%, #0c4a6e 50%, #082f49 100%) !important;
+            color: #f0f9ff !important;
+            border: 2px solid #38bdf8 !important;
+            box-shadow: 0 0 20px rgba(14, 165, 233, 0.3) !important;
         }
 
 
@@ -342,8 +398,16 @@
                 { id: 'skin_gold', theme: 'gold', name: 'Gold Edition', type: 'card', price: 50000, desc: 'Un look luxueux pour vos cartes.' },
                 { id: 'skin_carbon', theme: 'carbon', name: 'Carbon Fiber', type: 'card', price: 75000, desc: 'Design moderne et furtif.' },
                 { id: 'skin_royal', theme: 'royal', name: 'Royal Purple', type: 'card', price: 100000, desc: 'La pourpre des empereurs.' },
+                { id: 'skin_emerald', theme: 'emerald', name: 'Emerald Peak', type: 'card', price: 150000, desc: 'La pureté de l\'émeraude.' },
+                { id: 'skin_midnight', theme: 'midnight', name: 'Midnight Neon', type: 'card', price: 150000, desc: 'L\'énergie de la nuit.' },
+                { id: 'skin_volcano', theme: 'volcano', name: 'Volcan Magma', type: 'card', price: 150000, desc: 'La force du feu.' },
+                { id: 'skin_arctic', theme: 'arctic', name: 'Arctic Frost', type: 'card', price: 150000, desc: 'Le calme du grand nord.' },
                 { id: 'tapis_red', theme: 'red', name: 'Vegas Red', type: 'tapis', price: 40000, desc: 'L\'intensité de Las Vegas.', color: '#3d0d0d' },
                 { id: 'tapis_blue', theme: 'blue', name: 'Sapphire Blue', type: 'tapis', price: 40000, desc: 'L\'élégance du bleu saphir.', color: '#0d1e3d' },
+                { id: 'tapis_emerald', theme: 'emerald', name: 'Emerald Felt', type: 'tapis', price: 60000, desc: 'Le tapis des grands maîtres.', color: '#064e3b' },
+                { id: 'tapis_midnight', theme: 'midnight', name: 'Midnight Felt', type: 'tapis', price: 60000, desc: 'L\'immensité de l\'espace.', color: '#1e1b4b' },
+                { id: 'tapis_volcano', theme: 'volcano', name: 'Magma Felt', type: 'tapis', price: 60000, desc: 'Le feu sous vos cartes.', color: '#450a0a' },
+                { id: 'tapis_arctic', theme: 'arctic', name: 'Arctic Felt', type: 'tapis', price: 60000, desc: 'La pureté de la glace.', color: '#0c4a6e' },
             ];
             const buy = (item) => {
                 if (balance < item.price) return;
@@ -404,7 +468,7 @@
                                                     <span className="text-[14px] font-black gold-text opacity-60 uppercase tracking-[1.2em] rotate-[-12deg] group-hover:scale-110 transition-transform duration-1000 select-none">PREMIUM FELT</span>
                                                 </div>
                                                 <div className="absolute top-6 right-8 text-6xl opacity-70 filter drop-shadow-[0_0_20px_rgba(255,255,255,0.2)] scale-150">
-                                                    {item.theme === 'sakura' ? '🌸' : item.theme === 'fuji' ? '🗻' : item.theme === 'emerald' ? '💎' : item.theme === 'midnight' ? '🌌' : item.theme === 'volcano' ? '🌋' : item.theme === 'arctic' ? '❄️' : '🀄'}
+                                                    {item.theme === 'sakura' ? '🌸' : item.theme === 'fuji' ? '🗻' : item.theme === 'emerald' ? '💎' : item.theme === 'midnight' ? '🌌' : item.theme === 'volcano' ? '🌋' : item.theme === 'arctic' ? '❄️' : '🃏'}
                                                 </div>
                                             </div>
                                         )}
