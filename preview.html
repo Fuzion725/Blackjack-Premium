@@ -386,12 +386,14 @@
             };
 
             const placeBet = (amt) => {
-                if (mySeat === -1 || amt > balance) return;
                 const s = stateRef.current;
+                if (mySeat === -1 || amt > balance) return;
+
                 setBalance(b => b - amt);
                 const players = [...s.players];
-                players[mySeat].hands[0].bet = amt;
-                players[mySeat].hands[0].status = 'ready';
+                const p = players[mySeat];
+                p.hands[0].bet += amt;
+                p.hands[0].status = 'ready';
 
                 const active = players.filter(p => p).length;
                 const ready = players.filter(p => p && p.hands[0].status === 'ready').length;
@@ -528,14 +530,19 @@
                 while (calculateScore(dCards) < 17) dCards.push(shoe.pop());
 
                 const dScore = calculateScore(dCards);
+                const dHasBJ = isBlackjack(dCards);
+
                 const players = s.players.map(p => {
                     if (!p) return null;
                     const updatedHands = p.hands.map(h => {
                         const pScore = calculateScore(h.cards);
+                        const pHasBJ = isBlackjack(h.cards);
                         let res = '';
+
                         if (h.status === 'bust') res = 'Dealer Wins';
                         else if (dScore > 21) res = 'Player Wins';
-                        else if (isBlackjack(h.cards) && !isBlackjack(dCards)) res = 'Blackjack';
+                        else if (pHasBJ && !dHasBJ) res = 'Blackjack';
+                        else if (dHasBJ && !pHasBJ) res = 'Dealer Wins'; // Dealer BJ beats 21
                         else if (pScore > dScore) res = 'Player Wins';
                         else if (pScore === dScore) res = 'Push';
                         else res = 'Dealer Wins';
@@ -550,23 +557,39 @@
                 const myP = players[mySeat];
                 if (myP) {
                     let totalWin = 0;
-                    let outcomeMsg = "DEALER WINS";
                     myP.hands.forEach(h => {
-                        if (h.result === 'Blackjack') { totalWin += h.bet * 2.5; outcomeMsg = "BLACKJACK!"; }
-                        else if (h.result === 'Player Wins') { totalWin += h.bet * 2; if (outcomeMsg !== "BLACKJACK!") outcomeMsg = "YOU WIN!"; }
-                        else if (h.result === 'Push') { totalWin += h.bet; if (!outcomeMsg.includes("WIN") && outcomeMsg !== "BLACKJACK!") outcomeMsg = "PUSH"; }
+                        if (h.result === 'Blackjack') totalWin += h.bet * 2.5;
+                        else if (h.result === 'Player Wins') totalWin += h.bet * 2;
+                        else if (h.result === 'Push') totalWin += h.bet;
                     });
 
-                    const totalBet = myP.hands.reduce((s, h) => s + h.bet, 0);
-                    setWinnings({ amount: totalWin, net: totalWin - totalBet, message: outcomeMsg });
+                    // Insurance Payout
+                    if (dHasBJ && myP.insuranceBet) {
+                        totalWin += myP.insuranceBet * 3; // Insurance pays 2:1 (original bet + 2x win)
+                    }
+
+                    const totalBet = myP.hands.reduce((s, h) => s + h.bet, 0) + (myP.insuranceBet || 0);
+                    const netProfit = totalWin - totalBet;
+
+                    let outcomeMsg = "DEALER WINS";
+                    if (netProfit > 0) outcomeMsg = myP.hands.some(h => h.result === 'Blackjack') ? "BLACKJACK!" : "YOU WIN!";
+                    else if (netProfit === 0) outcomeMsg = "BREAK EVEN";
+                    else if (totalWin > 0) outcomeMsg = "PARTIAL WIN";
+
+                    setWinnings({ amount: totalWin, net: netProfit, message: outcomeMsg });
                     if (totalWin > 0) setBalance(b => b + totalWin);
 
-                    const xpG = myP.hands.some(h => h.result.includes('Win') || h.result === 'Blackjack') ? 50 : 10;
+                    // Re-calculate XP
+                    const hasWon = myP.hands.some(h => h.result.includes('Win') || h.result === 'Blackjack');
+                    const xpG = hasWon ? 50 : 10;
                     setXp(x => {
                         let nx = x + xpG;
                         if (nx >= level * 100) { nx %= (level * 100); setLevel(l => l + 1); }
                         return nx;
                     });
+
+                    // Cleanup insurance for next round
+                    myP.insuranceBet = 0;
                 }
 
                 setTimeout(() => {
