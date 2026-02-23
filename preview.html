@@ -185,6 +185,18 @@
             --table-border: #1e3a8a;
         }
 
+        .theme-sakura {
+            --table-green: #4d0a25;
+            --table-dark: #1a040d;
+            --table-border: #f472b6;
+        }
+
+        .theme-fuji {
+            --table-green: #0a234d;
+            --table-dark: #040d1a;
+            --table-border: #60a5fa;
+        }
+
         :root {
             --table-border: #1a100a;
         }
@@ -212,6 +224,18 @@
             background: linear-gradient(135deg, #5b21b6 0%, #1e1b4b 100%) !important;
             color: #eebd2b !important;
             border: 2px solid #7c3aed !important;
+        }
+
+        .card-sakura {
+            background: linear-gradient(135deg, #fce7f3 0%, #f472b6 100%) !important;
+            color: #831843 !important;
+            border: 2px solid #f9a8d4 !important;
+        }
+
+        .card-fuji {
+            background: linear-gradient(135deg, #eff6ff 0%, #2563eb 100%) !important;
+            color: #1e3a8a !important;
+            border: 2px solid #93c5fd !important;
         }
     </style>
 </head>
@@ -297,9 +321,13 @@
                 { id: 'skin_gold', name: 'Gold Edition', type: 'card', price: 50000, desc: 'Un look luxueux pour vos cartes.', preview: 'gold' },
                 { id: 'skin_carbon', name: 'Carbon Fiber', type: 'card', price: 75000, desc: 'Design moderne et furtif.', preview: 'carbon' },
                 { id: 'skin_royal', name: 'Royal Purple', type: 'card', price: 100000, desc: 'La pourpre des empereurs.', preview: 'royal' },
+                { id: 'skin_sakura', name: 'Sakura Petal', type: 'card', price: 80000, desc: 'La douceur du printemps japonais.', preview: 'sakura' },
+                { id: 'skin_fuji', name: 'Mount Fuji', type: 'card', price: 120000, desc: 'La majesté du mont sacré.', preview: 'fuji' },
                 { id: 'tapis_red', name: 'Vegas Red', type: 'tapis', price: 40000, desc: 'L\'intensité de Las Vegas.', color: '#3d0d0d' },
                 { id: 'tapis_blue', name: 'Sapphire Blue', type: 'tapis', price: 40000, desc: 'L\'élégance du bleu saphir.', color: '#0d1e3d' },
                 { id: 'tapis_gold', name: 'Midas Gold', type: 'tapis', price: 150000, desc: 'Jouez sur de l\'or massif.', color: '#4a3701' },
+                { id: 'tapis_sakura', name: 'Zen Garden', type: 'tapis', price: 90000, desc: 'La sérénité des cerisiers en fleurs.', color: '#4d0a25', theme: 'sakura' },
+                { id: 'tapis_fuji', name: 'Great Wave', type: 'tapis', price: 110000, desc: 'La puissance de l\'océan Pacifique.', color: '#0a234d', theme: 'fuji' },
             ];
 
             const buy = (item) => {
@@ -309,7 +337,8 @@
             };
 
             const equip = (item) => {
-                setActiveSkins(prev => ({ ...prev, [item.type]: item.id.replace('skin_', '').replace('tapis_', '') }));
+                const themeName = item.theme || item.id.replace('skin_', '').replace('tapis_', '');
+                setActiveSkins(prev => ({ ...prev, [item.type]: themeName }));
             };
 
             return (
@@ -325,7 +354,8 @@
                     <div className="flex-1 overflow-y-auto p-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto w-full">
                         {ITEMS.map(item => {
                             const isOwned = ownedItems.includes(item.id);
-                            const isActive = activeSkins[item.type] === item.id.replace('skin_', '').replace('tapis_', '');
+                            const themeName = item.theme || item.id.replace('skin_', '').replace('tapis_', '');
+                            const isActive = activeSkins[item.type] === themeName;
                             return (
                                 <div key={item.id} className="glass-panel p-6 rounded-2xl flex flex-col gap-4 relative overflow-hidden group hover:border-gold/50 transition-colors">
                                     <div className="flex justify-between items-start">
