@@ -368,6 +368,7 @@
             };
 
             const joinTable = (i) => {
+                if (mySeat !== -1) return; // Prevent joining multiple seats
                 if (!user && mode === 'multiplayer') return triggerLogin();
                 const players = [...gameState.players];
                 const profile = user || { name: 'Player 1', picture: 'https://cdn-icons-png.flaticon.com/512/149/149071.png' };
@@ -457,10 +458,21 @@
                 nextHand();
             };
 
+            const buyInsurance = () => {
+                const s = stateRef.current;
+                const p = s.players[mySeat];
+                const h = p.hands[0];
+                if (!s.insuranceAvailable || balance < h.bet / 2) return;
+
+                setBalance(b => b - (h.bet / 2));
+                p.insuranceBet = h.bet / 2;
+                updateState({ players: s.players, insuranceAvailable: false, message: 'Insurance Taken' });
+            };
             const split = () => {
                 const s = stateRef.current;
                 const players = [...s.players];
                 const p = players[mySeat];
+                if (!p) return;
                 const h = p.hands[0];
                 if (s.turn !== mySeat || h.cards.length !== 2 || h.cards[0].value !== h.cards[1].value || balance < h.bet) return;
 
@@ -676,7 +688,7 @@
                                                     {gameState.turn === i && <div className="absolute -bottom-1 w-2 h-2 rounded-full bg-gold shadow-[0_0_10px_gold] animate-pulse" />}
                                                 </div>
                                             ) : (
-                                                <button onClick={() => joinTable(i)} className="w-20 h-20 rounded-full border-2 border-dashed border-white/5 flex items-center justify-center opacity-20 hover:opacity-100 transition-opacity bg-black/20 text-[8px] font-bold uppercase tracking-widest">Seat {i + 1}</button>
+                                                mySeat === -1 && <button onClick={() => joinTable(i)} className="w-20 h-20 rounded-full border-2 border-dashed border-white/5 flex items-center justify-center opacity-20 hover:opacity-100 transition-opacity bg-black/20 text-[8px] font-bold uppercase tracking-widest">Seat {i + 1}</button>
                                             )}
                                         </div>
                                     );
@@ -704,6 +716,9 @@
                                     </div>
                                 ) : (
                                     <div className="flex flex-1 gap-2 h-16 w-full">
+                                        {gameState.insuranceAvailable && (
+                                            <button onClick={buyInsurance} className="glass-button flex-1 rounded-xl font-bold text-[10px] gold-text">INSURANCE</button>
+                                        )}
                                         <button onClick={hit} disabled={gameState.turn !== mySeat || mySeat === -1} className="glass-button flex-1 rounded-xl font-bold text-sm gold-text disabled:opacity-10">HIT</button>
                                         <button onClick={stand} disabled={gameState.turn !== mySeat || mySeat === -1} className="glass-button flex-1 rounded-xl font-bold text-sm text-white disabled:opacity-10">STAND</button>
                                         <button onClick={doubleDown} disabled={gameState.turn !== mySeat || mySeat === -1 || gameState.players[mySeat]?.hands[0]?.cards?.length !== 2} className="glass-button flex-1 rounded-xl font-bold text-xs text-blue-400 disabled:opacity-10">DOUBLE</button>
