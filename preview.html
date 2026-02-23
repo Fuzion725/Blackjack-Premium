@@ -364,8 +364,9 @@
 
             const placeBet = (amt) => {
                 if (mySeat === -1 || amt > balance) return;
+                const s = stateRef.current;
                 setBalance(b => b - amt);
-                const players = [...gameState.players];
+                const players = [...s.players];
                 players[mySeat].hands[0].bet = amt;
                 players[mySeat].hands[0].status = 'ready';
 
@@ -395,10 +396,11 @@
             };
 
             const hit = () => {
-                if (gameState.turn !== mySeat) return;
-                const shoe = [...gameState.shoe];
+                const s = stateRef.current;
+                if (s.turn !== mySeat) return;
+                const shoe = [...s.shoe];
                 const card = shoe.pop();
-                const players = [...gameState.players];
+                const players = [...s.players];
                 const p = players[mySeat];
                 const h = p.hands[p.activeHandIdx];
                 h.cards.push(card);
@@ -412,19 +414,21 @@
             };
 
             const stand = () => {
-                if (gameState.turn !== mySeat) return;
-                const players = [...gameState.players];
+                const s = stateRef.current;
+                if (s.turn !== mySeat) return;
+                const players = [...s.players];
                 players[mySeat].hands[players[mySeat].activeHandIdx].status = 'stand';
                 nextHand();
             };
 
             const doubleDown = () => {
-                if (gameState.turn !== mySeat || balance < gameState.players[mySeat].hands[0].bet) return;
-                const players = [...gameState.players];
+                const s = stateRef.current;
+                if (s.turn !== mySeat || balance < s.players[mySeat].hands[0].bet) return;
+                const players = [...s.players];
                 const h = players[mySeat].hands[0];
                 setBalance(b => b - h.bet);
                 h.bet *= 2;
-                const shoe = [...gameState.shoe];
+                const shoe = [...s.shoe];
                 h.cards.push(shoe.pop());
                 h.status = calculateScore(h.cards) > 21 ? 'bust' : 'stand';
                 updateState({ shoe, players });
@@ -432,13 +436,14 @@
             };
 
             const split = () => {
-                const players = [...gameState.players];
+                const s = stateRef.current;
+                const players = [...s.players];
                 const p = players[mySeat];
                 const h = p.hands[0];
-                if (gameState.turn !== mySeat || h.cards.length !== 2 || h.cards[0].value !== h.cards[1].value || balance < h.bet) return;
+                if (s.turn !== mySeat || h.cards.length !== 2 || h.cards[0].value !== h.cards[1].value || balance < h.bet) return;
 
                 setBalance(b => b - h.bet);
-                const shoe = [...gameState.shoe];
+                const shoe = [...s.shoe];
                 const hand1 = { cards: [h.cards[0], shoe.pop()], bet: h.bet, status: 'playing', result: '' };
                 const hand2 = { cards: [h.cards[1], shoe.pop()], bet: h.bet, status: 'playing', result: '' };
                 p.hands = [hand1, hand2];
@@ -446,18 +451,18 @@
             };
 
             const nextHand = () => {
-                const players = [...gameState.players];
-                const p = players[mySeat];
+                const s = stateRef.current;
+                const p = s.players[mySeat];
                 if (p.activeHandIdx < p.hands.length - 1) {
                     p.activeHandIdx++;
-                    updateState({ players });
+                    updateState({ players: s.players });
                 } else {
-                    advanceTurn(players);
+                    advanceTurn(mySeat, s.players);
                 }
             };
 
-            const advanceTurn = (players) => {
-                const next = players.findIndex((p, i) => p && i > gameState.turn);
+            const advanceTurn = (currentTurn, players) => {
+                const next = players.findIndex((p, i) => p && i > currentTurn);
                 if (next === -1) {
                     dealerTurn();
                 } else {
@@ -475,20 +480,21 @@
                     if (calculateScore(hand.cards) > 21) hand.status = 'bust';
                     updateState({ players: state.players, shoe: s });
                     if (hand.status === 'playing') setTimeout(() => botAction(stateRef.current), 1000);
-                    else advanceTurn(state.players);
+                    else advanceTurn(1, state.players);
                 } else {
                     hand.status = 'stand';
-                    advanceTurn(state.players);
+                    advanceTurn(1, state.players);
                 }
             };
 
             const dealerTurn = () => {
-                let shoe = [...gameState.shoe];
-                let dCards = [...gameState.dealerCards];
+                const s = stateRef.current;
+                let shoe = [...s.shoe];
+                let dCards = [...s.dealerCards];
                 while (calculateScore(dCards) < 17) dCards.push(shoe.pop());
 
                 const dScore = calculateScore(dCards);
-                const players = gameState.players.map(p => {
+                const players = s.players.map(p => {
                     if (!p) return null;
                     const updatedHands = p.hands.map(h => {
                         const pScore = calculateScore(h.cards);
