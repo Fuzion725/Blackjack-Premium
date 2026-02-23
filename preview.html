@@ -531,14 +531,17 @@
         function MainMenu({ onSelectMode, onOpenShop, user, triggerLogin }) {
             return (
                 <div className="h-full w-full flex flex-col items-center justify-center menu-gradient p-8 text-center relative overflow-hidden">
-                    <div className="absolute top-0 right-0 p-6">
+                    <div className="absolute top-0 right-0 p-6 flex gap-3">
                         {user ? (
                             <div className="flex items-center gap-3 bg-white/5 border border-white/10 pl-1 pr-3 py-1 rounded-full">
                                 <img src={user.picture} className="w-8 h-8 rounded-full border border-gold/30" />
                                 <span className="text-[10px] font-bold opacity-80">{user.name}</span>
                             </div>
                         ) : (
-                            <button onClick={triggerLogin} className="px-4 py-2 rounded-full border border-white/20 text-xs font-bold hover:border-gold/50 transition-all">SIGN IN</button>
+                            <>
+                                <button onClick={triggerLogin} className="px-4 py-2 rounded-full border border-white/20 text-xs font-bold hover:border-gold/50 transition-all gold-text">GOOGLE SIGN IN</button>
+                                <button onClick={onGuestLogin} className="px-4 py-2 rounded-full bg-white/10 border border-white/10 text-xs font-bold hover:bg-white/20 transition-all">GUEST ACCESS</button>
+                            </>
                         )}
                     </div>
 
@@ -686,6 +689,16 @@
             }, []);
 
             const triggerLogin = () => { google.accounts.id.prompt(); };
+
+            const guestLogin = () => {
+                const guestUser = {
+                    name: '👑 VIP Guest',
+                    picture: 'https://cdn-icons-png.flaticon.com/512/149/149071.png',
+                    email: 'guest@premium.casino'
+                };
+                setUser(guestUser);
+                localStorage.setItem('blackjack_user', JSON.stringify(guestUser));
+            };
 
             // --- Game Actions ---
             const updateState = (patch) => {
@@ -1040,7 +1053,7 @@
                 setView('game');
             };
 
-            if (view === 'menu') return <MainMenu onSelectMode={resetAndSelectMode} onOpenShop={() => setView('shop')} user={user} triggerLogin={triggerLogin} />;
+            if (view === 'menu') return <MainMenu onSelectMode={resetAndSelectMode} onOpenShop={() => setView('shop')} user={user} triggerLogin={triggerLogin} onGuestLogin={guestLogin} />;
             if (view === 'shop') return <Boutique user={user} balance={balance} setBalance={setBalance} ownedItems={ownedItems} setOwnedItems={setOwnedItems} activeSkins={activeSkins} setActiveSkins={setActiveSkins} onBack={() => setView('menu')} />;
 
             return (
@@ -1071,7 +1084,9 @@
                                     </div>
                                 </div>
                             ) : (
-                                <div onClick={triggerLogin} className="w-10 h-10 rounded-full border-2 border-dashed border-white/20 flex items-center justify-center cursor-pointer hover:border-gold/50"><span className="text-white/20 text-xl">👤</span></div>
+                                <button onClick={guestLogin} className="glass-panel px-4 py-1.5 rounded-full text-[10px] font-bold hover:bg-white/10 transition-colors">
+                                    Guest Sign In
+                                </button>
                             )}
                         </div>
                     </header>
