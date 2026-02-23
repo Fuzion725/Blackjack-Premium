@@ -1,8 +1,8 @@
-export type Suite = 'hearts' | 'diamonds' | 'clubs' | 'spades';
+export type Suit = 'hearts' | 'diamonds' | 'clubs' | 'spades';
 export type Rank = 'A' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' | '10' | 'J' | 'Q' | 'K';
 
 export interface Card {
-    suite: Suite;
+    suit: Suit;
     rank: Rank;
     value: number;
 }
@@ -19,18 +19,18 @@ export interface GameState {
     message: string;
 }
 
-const SUITES: Suite[] = ['hearts', 'diamonds', 'clubs', 'spades'];
+const SUITS: Suit[] = ['hearts', 'diamonds', 'clubs', 'spades'];
 const RANKS: Rank[] = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
 
 export const createDeck = (): Card[] => {
     const deck: Card[] = [];
-    for (const suite of SUITES) {
+    for (const suit of SUITS) {
         for (const rank of RANKS) {
             let value = parseInt(rank);
             if (rank === 'A') value = 11;
             else if (['J', 'Q', 'K'].includes(rank)) value = 10;
 
-            deck.push({ suite, rank, value: value || 10 });
+            deck.push({ suit, rank, value: value || 10 });
         }
     }
     return shuffle(deck);
@@ -54,4 +54,8 @@ export const calculateScore = (hand: Card[]): number => {
         aces -= 1;
     }
     return score;
+};
+
+export const isBlackjack = (hand: Card[]): boolean => {
+    return hand.length === 2 && calculateScore(hand) === 21;
 };

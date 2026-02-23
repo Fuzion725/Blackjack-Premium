@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Card, GameState, createDeck, calculateScore, GameStatus } from './logic/gameEngine';
+import React, { useState } from 'react';
+import { Card, GameState, createDeck, calculateScore, isBlackjack } from './logic/gameEngine';
 
 const BlackjackApp: React.FC = () => {
     const [gameState, setGameState] = useState<GameState>({
@@ -25,6 +25,21 @@ const BlackjackApp: React.FC = () => {
 
         const playerHand = [p1, p2];
         const dealerHand = [d1, d2];
+
+        // Check for player Blackjack
+        if (isBlackjack(playerHand)) {
+            setGameState(prev => ({
+                ...prev,
+                deck: currentDeck,
+                playerHand,
+                dealerHand,
+                balance: prev.balance + (bet * 1.5), // 3:2 Payout
+                currentBet: bet,
+                status: 'game-over',
+                message: 'Blackjack! You win $' + (bet * 1.5),
+            }));
+            return;
+        }
 
         setGameState(prev => ({
             ...prev,
@@ -124,7 +139,7 @@ const BlackjackApp: React.FC = () => {
                     <div className="flex gap-2">
                         {gameState.dealerHand.map((card, i) => (
                             <div key={i} className="w-16 h-24 bg-white rounded-lg shadow-lg flex items-center justify-center text-black font-bold border-2 border-[#eebd2b]">
-                                {gameState.status === 'playing' && i === 1 ? '?' : `${card.rank}${card.suite[0].toUpperCase()}`}
+                                {gameState.status === 'playing' && i === 1 ? '?' : `${card.rank}${card.suit[0].toUpperCase()}`}
                             </div>
                         ))}
                     </div>
@@ -135,7 +150,7 @@ const BlackjackApp: React.FC = () => {
                     <div className="flex gap-2 mb-4">
                         {gameState.playerHand.map((card, i) => (
                             <div key={i} className="w-20 h-32 bg-white rounded-lg shadow-xl flex items-center justify-center text-black text-xl font-bold border-2 border-[#eebd2b]">
-                                {card.rank}{card.suite[0].toUpperCase()}
+                                {card.rank}{card.suit[0].toUpperCase()}
                             </div>
                         ))}
                     </div>
