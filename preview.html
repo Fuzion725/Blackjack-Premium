@@ -4,12 +4,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Blackjack Premium - Authentic Experience</title>
+    <title>Blackjack Premium - Multiplayer Experience</title>
     <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/gun/gun.js"></script>
     <link
         href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:ital,wght@1,700&display=swap"
         rel="stylesheet">
@@ -74,22 +75,22 @@
 
         /* Betting Chips */
         .bet-chip {
-            width: 54px;
-            height: 54px;
+            width: 44px;
+            height: 44px;
             border-radius: 50%;
-            border: 4px dashed rgba(255, 255, 255, 0.4);
+            border: 3px dashed rgba(255, 255, 255, 0.4);
             display: flex;
             align-items: center;
             justify-content: center;
             font-weight: 800;
-            font-size: 11px;
+            font-size: 10px;
             cursor: pointer;
             transition: transform 0.2s, box-shadow 0.2s;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
         }
 
         .bet-chip:hover {
-            transform: scale(1.1) translateY(-5px);
+            transform: scale(1.1) translateY(-3px);
         }
 
         .chip-100 {
@@ -128,7 +129,7 @@
         /* Card Animation */
         @keyframes cardIn {
             from {
-                transform: translateY(-500px) rotate(-15deg);
+                transform: translateY(-300px) rotate(-15deg);
                 opacity: 0;
             }
 
@@ -157,9 +158,9 @@
             animation: rotateGear 10s linear infinite;
         }
 
-        /* Auth Container */
-        #google-login-container iframe {
-            margin: auto;
+        .seat-highlight {
+            box-shadow: 0 0 20px rgba(238, 189, 43, 0.2);
+            border: 2px solid rgba(238, 189, 43, 0.3);
         }
     </style>
 </head>
@@ -168,7 +169,12 @@
     <div id="root" class="h-full w-full"></div>
 
     <script type="text/babel">
-        const { useState, useEffect, useCallback, useMemo } = React;
+        const { useState, useEffect, useCallback, useMemo, useRef } = React;
+
+        // --- Configuration ---
+        const TABLE_ID = window.location.hash.replace('#', '') || 'Lobby-Premium';
+        const gun = Gun(['https://gun-manhattan.herokuapp.com/gun']); // Public relay
+        const table = gun.get('blackjack-premium').get(TABLE_ID);
 
         // --- Logic Engine ---
         const SUITS = [
@@ -193,6 +199,7 @@
         };
 
         const calculateScore = (hand) => {
+            if (!hand) return 0;
             let s = hand.reduce((a, c) => a + c.value, 0);
             let a = hand.filter(c => c.rank === 'A').length;
             while (s > 21 && a > 0) { s -= 10; a -= 1; }
@@ -204,14 +211,34 @@
                 const base64Url = token.split('.')[1];
                 const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
                 return JSON.parse(window.atob(base64));
-            } catch (e) {
-                return null;
-            }
+            } catch (e) { return null; }
         };
 
         // --- UI Fragments ---
 
-        const Card = ({ card, faceDown, index }) => (
+        const MiniCard = ({ card, faceDown, index }) => (
+            <div className={`w-12 h-16 sm:w-16 sm:h-20 bg-white rounded shadow-md flex flex-col p-1 justify-between border border-slate-200 card-anim relative -ml-6 first:ml-0`} style={{ animationDelay: `${index * 0.1}s` }}>
+                {faceDown ? (
+                    <div className="w-full h-full bg-[#1e1b4b] rounded-[2px] flex items-center justify-center border border-[#eebd2b]">
+                        <div className="text-[10px] text-yellow-600">❖</div>
+                    </div>
+                ) : (
+                    <React.Fragment>
+                        <div className={`text-[10px] font-bold ${card.suit.color} leading-none flex flex-col items-start`}>
+                            <span>{card.rank}</span>
+                            <span className="text-[8px]">{card.suit.sym}</span>
+                        </div>
+                        <div className={`text-[12px] self-center ${card.suit.color} opacity-80`}>{card.suit.sym}</div>
+                        <div className={`text-[10px] font-bold ${card.suit.color} rotate-180 leading-none flex flex-col items-start`}>
+                            <span>{card.rank}</span>
+                            <span className="text-[8px]">{card.suit.sym}</span>
+                        </div>
+                    </React.Fragment>
+                )}
+            </div>
+        );
+
+        const DealerCard = ({ card, faceDown, index }) => (
             <div className={`w-20 h-28 sm:w-24 sm:h-32 bg-white rounded-md shadow-2xl flex flex-col p-2 justify-between border-2 border-slate-200 card-anim`} style={{ animationDelay: `${index * 0.1}s` }}>
                 {faceDown ? (
                     <div className="w-full h-full bg-[#1e1b4b] rounded-[4px] flex items-center justify-center border-2 border-[#eebd2b]">
@@ -236,92 +263,81 @@
         );
 
         function App() {
-            // --- User & Persistence State ---
-            const [user, setUser] = useState(() => {
-                const savedUser = localStorage.getItem('blackjack_user');
-                return savedUser ? JSON.parse(savedUser) : null;
-            });
+            const [user, setUser] = useState(() => JSON.parse(localStorage.getItem('blackjack_user')) || null);
+            const [localBalance, setLocalBalance] = useState(250000);
+            const [localXp, setLocalXp] = useState(0);
+            const [localLevel, setLocalLevel] = useState(1);
+            const [history, setHistory] = useState([]);
 
-            const [game, setGame] = useState(() => {
-                const savedGame = localStorage.getItem('blackjack_game_state');
-                if (savedGame) {
-                    const parsed = JSON.parse(savedGame);
-                    return { ...parsed, deck: createDeck(), player: [], dealer: [], status: 'betting', msg: '' };
-                }
-                return {
-                    deck: createDeck(),
-                    player: [],
-                    dealer: [],
-                    balance: 250000,
-                    level: 1,
-                    xp: 0,
-                    bet: 0,
-                    status: 'betting',
-                    msg: '',
-                    history: []
-                };
+            // Multiplayer State
+            const [syncState, setSyncState] = useState({
+                dealerHand: [],
+                deck: [],
+                turn: -1, // -1: Betting, 0-2: Player Turns, 3: Dealer Turn
+                status: 'betting',
+                players: [null, null, null],
+                message: 'Waiting for players...'
             });
+            const [mySeat, setMySeat] = useState(-1);
+
+            // Refs for GunDB persistence
+            const stateRef = useRef(syncState);
+            stateRef.current = syncState;
+
+            // Load local data
+            useEffect(() => {
+                const saved = JSON.parse(localStorage.getItem('blackjack_game_state'));
+                if (saved) {
+                    setLocalBalance(saved.balance);
+                    setLocalXp(saved.xp || 0);
+                    setLocalLevel(saved.level || 1);
+                    setHistory(saved.history || []);
+                }
+            }, []);
+
+            // GunDB Listener
+            useEffect(() => {
+                table.on((data) => {
+                    if (data) {
+                        try {
+                            const parsed = typeof data === 'string' ? JSON.parse(data) : data;
+                            setSyncState(prev => ({ ...prev, ...parsed }));
+                        } catch (e) { console.error("Sync error", e); }
+                    }
+                });
+            }, []);
 
             // Sync with LocalStorage
             useEffect(() => {
                 localStorage.setItem('blackjack_game_state', JSON.stringify({
-                    balance: game.balance,
-                    level: game.level,
-                    xp: game.xp,
-                    history: game.history
+                    balance: localBalance, level: localLevel, xp: localXp, history
                 }));
-            }, [game.balance, game.level, game.xp, game.history]);
+            }, [localBalance, localLevel, localXp, history]);
 
             useEffect(() => {
-                if (user) {
-                    localStorage.setItem('blackjack_user', JSON.stringify(user));
-                } else {
-                    localStorage.removeItem('blackjack_user');
-                }
+                if (user) localStorage.setItem('blackjack_user', JSON.stringify(user));
+                else localStorage.removeItem('blackjack_user');
             }, [user]);
 
-            // Google Auth Handler
+            // Google Auth
             useEffect(() => {
                 const initAuth = () => {
                     if (typeof google !== 'undefined') {
                         google.accounts.id.initialize({
                             client_id: "725547674251-5o9geun4o0s39023475923057.apps.googleusercontent.com",
-                            callback: handleCredentialResponse,
-                            auto_select: false,
-                            cancel_on_tap_outside: true
+                            callback: res => {
+                                const profile = decodeJwt(res.credential);
+                                if (profile) setUser({ name: profile.name, email: profile.email, picture: profile.picture });
+                            },
                         });
-                        console.log("Google Global Auth Initialized");
-                    } else {
-                        setTimeout(initAuth, 500);
-                    }
+                    } else setTimeout(initAuth, 500);
                 };
                 initAuth();
-            }, [user]);
-
-            const handleCredentialResponse = (response) => {
-                console.log("Token received from Google");
-                const profile = decodeJwt(response.credential);
-                if (profile) {
-                    setUser({
-                        name: profile.name,
-                        email: profile.email,
-                        picture: profile.picture
-                    });
-                }
-            };
+            }, []);
 
             const triggerLogin = () => {
-                console.log("Attempting to trigger Google Prompt...");
-                if (typeof google !== 'undefined') {
-                    google.accounts.id.prompt((notification) => {
-                        if (notification.isNotDisplayed()) {
-                            console.warn("Prompt not displayed: " + notification.getNotDisplayedReason());
-                            alert("Veuillez rafraîchir la page ou vérifier vos paramètres de blocage de fenêtres surgissantes.");
-                        }
-                    });
-                } else {
-                    alert("Le service d'authentification Google n'est pas encore chargé.");
-                }
+                if (typeof google !== 'undefined') google.accounts.id.prompt();
+                else alert("Google Auth not loaded yet.");
             };
 
             const logout = () => {
@@ -329,70 +345,167 @@
                 localStorage.removeItem('blackjack_user');
             };
 
-            // --- Game Actions ---
-            const deal = (amount) => {
-                if (amount > game.balance) return;
-                const d = game.deck.length < 10 ? createDeck() : [...game.deck];
-                const p1 = d.pop(), d1 = d.pop(), p2 = d.pop(), d2 = d.pop();
-                setGame(prev => ({
-                    ...prev, deck: d, player: [p1, p2], dealer: [d1, d2],
-                    balance: prev.balance - amount, bet: amount, status: 'playing', msg: ''
-                }));
+            // --- Multiplayer Actions ---
+
+            const updateRemote = (patch) => {
+                table.put({ ...stateRef.current, ...patch });
+            };
+
+            const claimSeat = (i) => {
+                if (!user) return triggerLogin();
+                if (syncState.players[i]) return;
+
+                const newPlayers = [...syncState.players];
+                newPlayers[i] = {
+                    id: user.email,
+                    name: user.name,
+                    picture: user.picture,
+                    hand: [],
+                    bet: 0,
+                    status: 'idle'
+                };
+                setMySeat(i);
+                updateRemote({ players: newPlayers, status: 'betting' });
+            };
+
+            const placeBet = (amount) => {
+                if (mySeat === -1 || amount > localBalance) return;
+                setLocalBalance(prev => prev - amount);
+                const newPlayers = [...syncState.players];
+                newPlayers[mySeat].bet = amount;
+                newPlayers[mySeat].status = 'ready';
+
+                // If everyone is ready, start
+                const ready = newPlayers.filter(p => p && p.status === 'ready').length;
+                const active = newPlayers.filter(p => p).length;
+
+                if (ready === active && active > 0) {
+                    startRound(newPlayers);
+                } else {
+                    updateRemote({ players: newPlayers, message: `Waiting for ${active - ready} more bets...` });
+                }
+            };
+
+            const startRound = (players) => {
+                const deck = createDeck();
+                const dealerHand = [deck.pop(), deck.pop()];
+                const updatedPlayers = players.map(p => {
+                    if (!p) return null;
+                    return { ...p, hand: [deck.pop(), deck.pop()], status: 'playing' };
+                });
+
+                // Find first player
+                const firstPlayerIndex = updatedPlayers.findIndex(p => p);
+
+                updateRemote({
+                    deck,
+                    dealerHand,
+                    players: updatedPlayers,
+                    turn: firstPlayerIndex,
+                    status: 'playing',
+                    message: `It's ${updatedPlayers[firstPlayerIndex].name}'s turn`
+                });
             };
 
             const hit = () => {
-                const d = [...game.deck];
-                const card = d.pop();
-                const newHand = [...game.player, card];
-                const s = calculateScore(newHand);
-                if (s > 21) {
-                    finishGame(newHand, game.dealer, 'Dealer Wins (Bust)');
+                if (syncState.turn !== mySeat) return;
+                const deck = [...syncState.deck];
+                const card = deck.pop();
+                const newPlayers = [...syncState.players];
+                newPlayers[mySeat].hand.push(card);
+
+                if (calculateScore(newPlayers[mySeat].hand) > 21) {
+                    newPlayers[mySeat].status = 'bust';
+                    nextTurn(newPlayers, deck);
                 } else {
-                    setGame(prev => ({ ...prev, player: newHand, deck: d }));
+                    updateRemote({ players: newPlayers, deck });
                 }
             };
 
             const stand = () => {
-                let dDeck = [...game.deck];
-                let dHand = [...game.dealer];
-                while (calculateScore(dHand) < 17) dHand.push(dDeck.pop());
-
-                const ps = calculateScore(game.player);
-                const ds = calculateScore(dHand);
-
-                if (ds > 21 || ps > ds) finishGame(game.player, dHand, 'Player Wins');
-                else if (ps === ds) finishGame(game.player, dHand, 'Push');
-                else finishGame(game.player, dHand, 'Dealer Wins');
+                if (syncState.turn !== mySeat) return;
+                const newPlayers = [...syncState.players];
+                newPlayers[mySeat].status = 'stand';
+                nextTurn(newPlayers, syncState.deck);
             };
 
-            const finishGame = (p, d, res) => {
-                const win = res === 'Player Wins';
-                const push = res === 'Push';
-                const gain = win ? game.bet * 2 : (push ? game.bet : 0);
-                const xpGain = win ? 50 : 10;
+            const nextTurn = (players, deck) => {
+                const nextIdx = players.findIndex((p, i) => p && i > syncState.turn && p.status === 'playing');
+                if (nextIdx === -1) {
+                    dealerTurn(players, deck);
+                } else {
+                    updateRemote({
+                        players,
+                        deck,
+                        turn: nextIdx,
+                        message: `It's ${players[nextIdx].name}'s turn`
+                    });
+                }
+            };
 
-                setGame(prev => {
-                    let newXp = prev.xp + xpGain;
-                    let newLevel = prev.level;
-                    if (newXp >= 100 * prev.level) {
-                        newXp %= (100 * prev.level);
-                        newLevel += 1;
-                    }
+            const dealerTurn = (players, deck) => {
+                const dHand = [...syncState.dealerHand];
+                const dDeck = [...deck];
+                while (calculateScore(dHand) < 17) dHand.push(dDeck.pop());
 
-                    return {
-                        ...prev,
-                        player: p, dealer: d, status: 'results', msg: res,
-                        balance: prev.balance + gain,
-                        xp: newXp,
-                        level: newLevel,
-                        history: [{ id: Date.now(), result: res, amount: win ? game.bet : (push ? 0 : game.bet), win, push }, ...prev.history].slice(0, 10)
-                    };
+                const dScore = calculateScore(dHand);
+                const updatedPlayers = players.map(p => {
+                    if (!p) return null;
+                    const pScore = calculateScore(p.hand);
+                    let result = '';
+                    if (p.status === 'bust') result = 'Dealer Wins';
+                    else if (dScore > 21) result = 'Player Wins';
+                    else if (pScore > dScore) result = 'Player Wins';
+                    else if (pScore === dScore) result = 'Push';
+                    else result = 'Dealer Wins';
+
+                    return { ...p, result, status: 'results' };
                 });
+
+                updateRemote({
+                    dealerHand: dHand,
+                    deck: dDeck,
+                    players: updatedPlayers,
+                    turn: 3,
+                    status: 'results',
+                    message: 'Round Results'
+                });
+
+                // Apply rewards locally
+                const myPlayer = updatedPlayers[mySeat];
+                if (myPlayer) {
+                    const win = myPlayer.result === 'Player Wins';
+                    const push = myPlayer.result === 'Push';
+                    const gain = win ? myPlayer.bet * 2 : (push ? myPlayer.bet : 0);
+                    if (gain > 0) setLocalBalance(b => b + gain);
+
+                    const xpGain = win ? 50 : 10;
+                    setLocalXp(x => {
+                        let nx = x + xpGain;
+                        if (nx >= localLevel * 100) {
+                            nx %= (localLevel * 100);
+                            setLocalLevel(l => l + 1);
+                        }
+                        return nx;
+                    });
+                    setHistory(h => [{ id: Date.now(), result: myPlayer.result, amount: win ? myPlayer.bet : (push ? 0 : myPlayer.bet), win, push }, ...h].slice(0, 10));
+                }
+
+                // Reset after 5s
+                setTimeout(() => {
+                    const resetPlayers = stateRef.current.players.map(p => p ? { ...p, hand: [], bet: 0, status: 'idle', result: '' } : null);
+                    updateRemote({
+                        players: resetPlayers,
+                        dealerHand: [],
+                        turn: -1,
+                        status: 'betting',
+                        message: 'Place your bets'
+                    });
+                }, 5000);
             };
 
             return (
                 <div className="h-full w-full flex flex-col">
-                    {/* Header */}
                     <header className="h-16 flex items-center justify-between px-6 bg-black border-b border-white/10 shrink-0">
                         <div className="flex items-center gap-3">
                             <div className="w-10 h-10 gold-bg rounded flex items-center justify-center p-1.5 shadow-[0_0_15px_rgba(238,189,43,0.3)]">
@@ -400,7 +513,10 @@
                                     <path d="M12,2L4.5,20.29L5.21,21L12,18L18.79,21L19.5,20.29L12,2Z" />
                                 </svg>
                             </div>
-                            <span className="font-bold tracking-tighter text-lg gold-text italic">BLACKJACK PREMIUM</span>
+                            <div className="flex flex-col">
+                                <span className="font-bold tracking-tighter text-lg gold-text italic leading-none">BLACKJACK PREMIUM</span>
+                                <span className="text-[9px] uppercase tracking-[0.2em] opacity-40 ml-1">Table: {TABLE_ID}</span>
+                            </div>
                         </div>
 
                         <div className="flex items-center gap-4">
@@ -411,139 +527,127 @@
                                     </div>
                                     <div className="flex flex-col">
                                         <span className="text-[10px] font-bold opacity-80 leading-none">{user.name}</span>
-                                        <span className="text-[9px] gold-text font-bold uppercase tracking-widest mt-0.5">Niveau {game.level}</span>
+                                        <span className="text-[9px] gold-text font-bold uppercase tracking-widest mt-0.5">Niveau {localLevel}</span>
                                     </div>
                                     <button onClick={logout} className="ml-2 text-white/30 hover:text-red-400 text-xs">Logout</button>
                                 </div>
                             ) : (
-                                <div
-                                    onClick={triggerLogin}
-                                    className="w-10 h-10 rounded-full border-2 border-dashed border-white/20 flex items-center justify-center cursor-pointer hover:border-gold/50 transition-all hover:bg-white/5 group shadow-lg"
-                                    title="Connectez-vous pour enregistrer votre progression"
-                                >
+                                <div onClick={triggerLogin} className="w-10 h-10 rounded-full border-2 border-dashed border-white/20 flex items-center justify-center cursor-pointer hover:border-gold/50 transition-all hover:bg-white/5 group shadow-lg">
                                     <span className="text-white/20 group-hover:text-gold/50 text-xl">👤</span>
                                 </div>
                             )}
-
-                            <div className="hidden lg:flex items-center gap-2 bg-yellow-500/10 border border-yellow-500/30 px-3 py-1.5 rounded-full text-[10px] font-bold gold-text">
-                                <div className="w-2 h-2 rounded-full bg-yellow-500 shadow-[0_0_8px_gold]" />
-                                VIP Table 007
-                            </div>
                         </div>
                     </header>
 
                     <div className="flex-1 flex overflow-hidden">
-                        {/* Table Area */}
                         <main className="flex-1 relative flex flex-col p-4">
                             <div className="flex-1 table-felt rounded-[100px] border-[14px] border-[#1a100a] relative flex flex-col items-center justify-between py-12 px-8 overflow-hidden">
-                                <div className="absolute inset-0 border-[2px] border-yellow-500/5 m-12 rounded-[100px] pointer-events-none" />
-
-                                {/* Dealer Part */}
-                                <div className="flex flex-col items-center z-10">
-                                    <div className="flex gap-3 mb-6 min-h-[128px]">
-                                        {game.dealer.map((c, i) => <Card key={i} card={c} faceDown={game.status === 'playing' && i === 1} index={i} />)}
-                                        {game.dealer.length === 0 && <div className="w-24 h-32 border-2 border-white/5 rounded-md opacity-20" />}
-                                    </div>
-                                    <div className="bg-black/60 px-6 py-2 rounded-full border border-yellow-500/40 text-[10px] uppercase font-bold tracking-[0.2em] gold-text">
-                                        Dealer stands on 17
-                                    </div>
-                                </div>
-
-                                {/* Center Branding */}
-                                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none">
-                                    <h2 className="text-6xl sm:text-8xl font-serif-italic shadow-sm gold-text opacity-30 tracking-tight skew-x-[-10deg] select-none">BLACKJACK</h2>
-                                    <p className="text-[10px] sm:text-xs uppercase tracking-[0.5em] gold-text opacity-40 mt-4">— Insurance Pays 2 to 1 —</p>
-                                </div>
-
-                                {/* Player Part */}
-                                <div className="flex flex-col items-center z-10 w-full relative">
-                                    <div className="flex gap-3 mb-4 scale-110 min-h-[128px]">
-                                        {game.player.map((c, i) => <Card key={i} card={c} index={i + 2} />)}
-                                        {game.player.length === 0 && <div className="w-24 h-32 border-2 border-white/5 rounded-md opacity-20" />}
-                                    </div>
-
+                                <div className="absolute inset-x-0 top-12 flex justify-center z-10">
                                     <div className="flex flex-col items-center">
-                                        {game.status === 'results' && <p className="text-xl sm:text-2xl font-bold mb-4 drop-shadow-lg gold-text tracking-widest uppercase animate-bounce">{game.msg}</p>}
-
-                                        {game.status !== 'playing' && (
-                                            <div className="flex flex-col items-center scale-90 sm:scale-100">
-                                                <div className="flex gap-3 mb-2">
-                                                    <div onClick={() => deal(100)} className="bet-chip chip-100">$100</div>
-                                                    <div onClick={() => deal(500)} className="bet-chip chip-500">$500</div>
-                                                    <div onClick={() => deal(1000)} className="bet-chip chip-1k">$1K</div>
-                                                    <div onClick={() => deal(5000)} className="bet-chip chip-5k">$5K</div>
-                                                    <div onClick={() => deal(25000)} className="bet-chip chip-25k">$25K</div>
-                                                </div>
-                                                <div className="bg-yellow-500/20 px-4 py-1 rounded text-[10px] font-bold gold-text uppercase tracking-widest">Select Bet</div>
-                                            </div>
-                                        )}
+                                        <div className="flex gap-2 mb-4">
+                                            {syncState.dealerHand.map((c, i) => <DealerCard key={i} card={c} faceDown={syncState.turn !== 3 && i === 1} index={i} />)}
+                                            {syncState.dealerHand.length === 0 && <div className="w-24 h-32 border-2 border-white/5 rounded-md opacity-20" />}
+                                        </div>
+                                        <div className="bg-black/60 px-4 py-1 rounded-full border border-yellow-500/40 text-[9px] uppercase font-bold tracking-[0.2em] gold-text">Dealer stands on 17</div>
                                     </div>
+                                </div>
+
+                                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-10 text-center pointer-events-none opacity-20 w-full">
+                                    <h2 className="text-6xl sm:text-7xl font-serif-italic gold-text skew-x-[-10deg]">BLACKJACK</h2>
+                                    <p className="text-[9px] uppercase tracking-[0.5em] gold-text mt-2">{syncState.message}</p>
+                                </div>
+
+                                {/* Multiplayer Seats */}
+                                <div className="absolute inset-x-0 bottom-12 flex justify-around px-12 gap-8 h-40">
+                                    {[0, 1, 2].map(i => {
+                                        const p = syncState.players[i];
+                                        const isMyTurn = syncState.turn === i;
+                                        return (
+                                            <div key={i} className={`flex-1 flex flex-col items-center justify-end relative ${mySeat === i ? 'seat-highlight rounded-2xl p-2' : ''}`}>
+                                                {p ? (
+                                                    <div className="flex flex-col items-center">
+                                                        <div className="flex mb-2">
+                                                            {p.hand.map((c, ci) => <MiniCard key={ci} card={c} index={ci} />)}
+                                                        </div>
+                                                        <div className="bg-black/80 p-2 rounded-lg border border-white/10 flex items-center gap-2 min-w-[120px]">
+                                                            <div className="w-8 h-8 rounded-full overflow-hidden border border-gold/30">
+                                                                <img src={p.picture} className="w-full h-full object-cover" />
+                                                            </div>
+                                                            <div className="flex flex-col">
+                                                                <span className="text-[9px] font-bold truncate max-w-[80px]">{p.name}</span>
+                                                                <span className="text-[10px] gold-text font-bold italic">${p.bet}</span>
+                                                            </div>
+                                                        </div>
+                                                        {p.result && <div className="absolute -top-16 text-xs gold-text font-bold uppercase tracking-widest animate-pulse">{p.result}</div>}
+                                                        {isMyTurn && <div className="absolute -bottom-2 w-2 h-2 rounded-full bg-gold animate-ping" />}
+                                                    </div>
+                                                ) : (
+                                                    <button onClick={() => claimSeat(i)} className="w-24 h-24 rounded-full border-2 border-dashed border-white/10 flex flex-col items-center justify-center opacity-30 hover:opacity-100 transition-opacity bg-black/20">
+                                                        <span className="text-xs font-bold uppercase tracking-tighter opacity-40">Join Table</span>
+                                                        <span className="text-xl mt-1">🪑</span>
+                                                    </button>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             </div>
 
-                            {/* Controls Footer */}
-                            <div className="mt-4 flex flex-col sm:flex-row items-center justify-between w-full sm:h-24 gap-4 px-4 pb-4 sm:pb-0 sticky bottom-0">
-                                {/* Balance */}
-                                <div className="glass-panel w-full sm:w-56 h-16 sm:h-full rounded-xl flex items-center px-5 gap-4">
-                                    <div className="w-10 h-10 rounded bg-yellow-500/10 border border-yellow-500/30 flex items-center justify-center gold-text shadow-inner">
-                                        <svg className="w-6 h-6 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                        </svg>
+                            <div className="mt-4 flex flex-col sm:flex-row items-center justify-between w-full h-24 gap-4 px-4 sticky bottom-0">
+                                <div className="glass-panel w-56 h-full rounded-xl flex items-center px-5 gap-4">
+                                    <div className="w-10 h-10 rounded bg-yellow-500/10 border border-yellow-500/30 flex items-center justify-center gold-text">
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                                     </div>
                                     <div className="flex flex-col">
-                                        <span className="text-[10px] uppercase font-bold opacity-40">Total Balance</span>
-                                        <span className="text-xl sm:text-2xl font-bold font-serif-italic tracking-tight">${game.balance.toLocaleString()}</span>
+                                        <span className="text-[9px] uppercase font-bold opacity-40 tracking-widest">Total Balance</span>
+                                        <span className="text-xl font-bold font-serif-italic tracking-tight">${localBalance.toLocaleString()}</span>
                                     </div>
                                 </div>
 
-                                {/* Mid Actions */}
-                                <div className="flex flex-1 items-center justify-center gap-3 h-16 sm:h-20 w-full">
-                                    <button onClick={hit} disabled={game.status !== 'playing'} className="glass-button flex-1 sm:w-36 h-full rounded-lg flex flex-col items-center justify-center disabled:opacity-30 disabled:grayscale">
-                                        <span className="font-bold text-sm sm:text-md tracking-widest gold-text">HIT</span>
-                                        <span className="text-[8px] opacity-40 uppercase tracking-tighter hidden sm:block">Draw Card</span>
-                                    </button>
-                                    <button onClick={stand} disabled={game.status !== 'playing'} className="glass-button flex-1 sm:w-36 h-full rounded-lg flex flex-col items-center justify-center disabled:opacity-30 disabled:grayscale">
-                                        <span className="font-bold text-sm sm:text-md tracking-widest text-white">STAND</span>
-                                        <span className="text-[8px] opacity-40 uppercase tracking-tighter hidden sm:block">Hold Total</span>
-                                    </button>
+                                <div className="flex-1 flex items-center justify-center gap-2 max-w-lg">
+                                    {syncState.status === 'betting' && mySeat !== -1 && syncState.players[mySeat]?.status === 'idle' ? (
+                                        <div className="flex gap-2">
+                                            {[100, 500, 1000, 5000].map(val => (
+                                                <div key={val} onClick={() => placeBet(val)} className={`bet-chip ${val === 100 ? 'chip-100' : val === 500 ? 'chip-500' : val === 1000 ? 'chip-1k' : 'chip-5k'}`}>${val}</div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <div className="flex flex-1 gap-2 h-16">
+                                            <button onClick={hit} disabled={syncState.turn !== mySeat} className="glass-button flex-1 rounded-lg flex flex-col items-center justify-center disabled:opacity-20">
+                                                <span className="font-bold text-sm tracking-widest gold-text">HIT</span>
+                                            </button>
+                                            <button onClick={stand} disabled={syncState.turn !== mySeat} className="glass-button flex-1 rounded-lg flex flex-col items-center justify-center disabled:opacity-20">
+                                                <span className="font-bold text-sm tracking-widest text-white">STAND</span>
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
 
-                                {/* Progress Info */}
-                                <div className="w-full sm:w-56 h-full flex flex-col items-center sm:items-end justify-center px-4">
-                                    <div className="w-full h-1.5 bg-white/5 rounded-full overflow-hidden mb-2">
-                                        <div className="h-full bg-gold shadow-[0_0_10px_gold]" style={{ width: `${(game.xp / (100 * game.level)) * 100}%` }}></div>
+                                <div className="w-56 h-full flex flex-col items-end justify-center px-4">
+                                    <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden mb-2">
+                                        <div className="h-full bg-gold" style={{ width: `${(localXp / (100 * localLevel)) * 100}%` }}></div>
                                     </div>
-                                    <span className="text-[9px] uppercase opacity-40 font-bold tracking-widest">XP to Next LVL</span>
+                                    <span className="text-[8px] uppercase opacity-40 font-bold tracking-widest">Niveau {localLevel} • XP {localXp}/{localLevel * 100}</span>
                                 </div>
                             </div>
                         </main>
 
-                        {/* Sidebar */}
-                        <aside className="hidden lg:flex w-80 bg-[#121417] border-l border-white/5 flex-col pt-6 shrink-0 z-40">
+                        <aside className="hidden lg:flex w-72 bg-[#121417] border-l border-white/5 flex-col pt-6 shrink-0 z-40">
                             <div className="px-6 flex justify-between items-center mb-6">
-                                <h3 className="text-xs font-bold tracking-[0.2em] opacity-60 uppercase">Table History</h3>
+                                <h3 className="text-xs font-bold tracking-[0.2em] opacity-40 uppercase italic">Multiplayer Lobby</h3>
                             </div>
-
-                            <div className="flex-1 overflow-y-auto px-6 space-y-4">
-                                {game.history.map(h => (
-                                    <div key={h.id} className="history-item p-4 rounded-lg flex justify-between items-start">
-                                        <div>
-                                            <p className="text-[9px] font-bold opacity-30 uppercase tracking-widest">Hand #{h.id.toString().slice(-4)}</p>
-                                            <p className="text-sm font-semibold mt-1">{h.result}</p>
-                                        </div>
-                                        <div className={`text-sm font-bold mt-3 ${h.win ? 'gold-text' : (h.push ? 'text-gray-400' : 'text-red-500')}`}>
-                                            {h.win ? '+' : (h.push ? '' : '-')}${h.amount.toLocaleString()}
+                            <div className="flex-1 overflow-y-auto px-6 space-y-3">
+                                {syncState.players.map((p, i) => p && (
+                                    <div key={i} className="history-item p-3 rounded flex items-center gap-3">
+                                        <img src={p.picture} className="w-6 h-6 rounded-full" />
+                                        <div className="flex-1">
+                                            <p className="text-[10px] font-bold">{p.name}</p>
+                                            <p className={`text-[8px] uppercase ${p.status === 'playing' ? 'text-green-500' : 'opacity-40'}`}>{p.status}</p>
                                         </div>
                                     </div>
                                 ))}
-                                {game.history.length === 0 && <p className="text-xs opacity-20 italic text-center py-10">No recent activity.</p>}
                             </div>
-
-                            <div className="p-4 bg-black/40">
-                                <div className="text-center py-2">
-                                    <p className="text-[9px] uppercase gold-text font-bold tracking-[0.2em] opacity-50">Authorized VIP Lounge</p>
-                                </div>
-                            </div>
+                            <div className="p-4 bg-black/40 text-[8px] text-center opacity-30 italic">P2P Synced via GunDB</div>
                         </aside>
                     </div>
                 </div>
