@@ -419,7 +419,7 @@
 
             const hit = () => {
                 const s = stateRef.current;
-                if (s.turn !== mySeat) return;
+                if (s.turn !== mySeat || mySeat === -1) return;
                 const shoe = [...s.shoe];
                 const card = shoe.pop();
                 const players = [...s.players];
@@ -437,7 +437,7 @@
 
             const stand = () => {
                 const s = stateRef.current;
-                if (s.turn !== mySeat) return;
+                if (s.turn !== mySeat || mySeat === -1) return;
                 const players = [...s.players];
                 players[mySeat].hands[players[mySeat].activeHandIdx].status = 'stand';
                 nextHand();
@@ -445,7 +445,7 @@
 
             const doubleDown = () => {
                 const s = stateRef.current;
-                if (s.turn !== mySeat || balance < s.players[mySeat].hands[0].bet) return;
+                if (s.turn !== mySeat || mySeat === -1 || balance < s.players[mySeat].hands[0].bet) return;
                 const players = [...s.players];
                 const h = players[mySeat].hands[0];
                 setBalance(b => b - h.bet);
@@ -534,15 +534,19 @@
 
                 updateState({ shoe, dealerCards: dCards, players, status: 'results', turn: 3, message: 'Round Over' });
 
-                // Payouts
+                // Payouts & Results UI
                 const myP = players[mySeat];
                 if (myP) {
                     let totalWin = 0;
+                    let outcomeMsg = "DEALER WINS";
                     myP.hands.forEach(h => {
-                        if (h.result === 'Blackjack') totalWin += h.bet * 2.5; // 3:2 payout
-                        else if (h.result === 'Player Wins') totalWin += h.bet * 2;
-                        else if (h.result === 'Push') totalWin += h.bet;
+                        if (h.result === 'Blackjack') { totalWin += h.bet * 2.5; outcomeMsg = "BLACKJACK!"; }
+                        else if (h.result === 'Player Wins') { totalWin += h.bet * 2; if (outcomeMsg !== "BLACKJACK!") outcomeMsg = "YOU WIN!"; }
+                        else if (h.result === 'Push') { totalWin += h.bet; if (!outcomeMsg.includes("WIN") && outcomeMsg !== "BLACKJACK!") outcomeMsg = "PUSH"; }
                     });
+
+                    const totalBet = myP.hands.reduce((s, h) => s + h.bet, 0);
+                    setWinnings({ amount: totalWin, net: totalWin - totalBet, message: outcomeMsg });
                     if (totalWin > 0) setBalance(b => b + totalWin);
 
                     const xpG = myP.hands.some(h => h.result.includes('Win') || h.result === 'Blackjack') ? 50 : 10;
