@@ -299,8 +299,13 @@
                 if (mode === 'multiplayer' && view === 'game') {
                     const room = gun.get('blackjack-v2').get(tableId);
                     room.on(data => {
-                        if (data) {
-                            try { setGameState(prev => ({ ...prev, ...JSON.parse(data) })); } catch (e) { }
+                        if (data && typeof data === 'string') {
+                            try {
+                                const parsed = JSON.parse(data);
+                                if (parsed && typeof parsed === 'object') {
+                                    setGameState(prev => ({ ...prev, ...parsed }));
+                                }
+                            } catch (e) { console.error("Gun parse error:", e); }
                         }
                     });
                     return () => room.off();
@@ -529,7 +534,23 @@
                 }, 5000);
             };
 
-            if (view === 'menu') return <MainMenu onSelectMode={(m) => { setMode(m); setView('game'); }} user={user} triggerLogin={triggerLogin} />;
+            const resetAndSelectMode = (m) => {
+                setMode(m);
+                setMySeat(-1);
+                setGameState({
+                    shoe: createShoe(),
+                    dealerCards: [],
+                    players: [null, null, null],
+                    turn: -1,
+                    status: 'betting',
+                    message: 'Place your Bets',
+                    activeHandIdx: 0,
+                    insuranceAvailable: false
+                });
+                setView('game');
+            };
+
+            if (view === 'menu') return <MainMenu onSelectMode={resetAndSelectMode} user={user} triggerLogin={triggerLogin} />;
 
             return (
                 <div className="h-full w-full flex flex-col">
@@ -627,10 +648,10 @@
                                     </div>
                                 ) : (
                                     <div className="flex flex-1 gap-2 h-16 w-full">
-                                        <button onClick={hit} disabled={gameState.turn !== mySeat} className="glass-button flex-1 rounded-xl font-bold text-sm gold-text disabled:opacity-10">HIT</button>
-                                        <button onClick={stand} disabled={gameState.turn !== mySeat} className="glass-button flex-1 rounded-xl font-bold text-sm text-white disabled:opacity-10">STAND</button>
-                                        <button onClick={doubleDown} disabled={gameState.turn !== mySeat || gameState.players[mySeat].hands[0].cards.length !== 2} className="glass-button flex-1 rounded-xl font-bold text-xs text-blue-400 disabled:opacity-10">DOUBLE</button>
-                                        {gameState.players[mySeat]?.hands[0].cards.length === 2 && gameState.players[mySeat]?.hands[0].cards[0].value === gameState.players[mySeat]?.hands[0].cards[1].value && (
+                                        <button onClick={hit} disabled={gameState.turn !== mySeat || mySeat === -1} className="glass-button flex-1 rounded-xl font-bold text-sm gold-text disabled:opacity-10">HIT</button>
+                                        <button onClick={stand} disabled={gameState.turn !== mySeat || mySeat === -1} className="glass-button flex-1 rounded-xl font-bold text-sm text-white disabled:opacity-10">STAND</button>
+                                        <button onClick={doubleDown} disabled={gameState.turn !== mySeat || mySeat === -1 || gameState.players[mySeat]?.hands[0]?.cards?.length !== 2} className="glass-button flex-1 rounded-xl font-bold text-xs text-blue-400 disabled:opacity-10">DOUBLE</button>
+                                        {mySeat !== -1 && gameState.players[mySeat]?.hands[0]?.cards?.length === 2 && gameState.players[mySeat]?.hands[0]?.cards[0]?.value === gameState.players[mySeat]?.hands[0]?.cards[1]?.value && (
                                             <button onClick={split} disabled={gameState.turn !== mySeat} className="glass-button flex-1 rounded-xl font-bold text-xs text-green-400 disabled:opacity-10">SPLIT</button>
                                         )}
                                     </div>
