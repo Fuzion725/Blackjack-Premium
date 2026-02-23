@@ -585,9 +585,9 @@
                     // Re-calculate XP & Stats
                     let roundWins = 0, roundLosses = 0, roundDraws = 0;
                     myP.hands.forEach(h => {
-                        if (h.result.includes('Win') || h.result === 'Blackjack') roundWins++;
+                        if (h.result === 'Player Wins' || h.result === 'Blackjack') roundWins++;
                         else if (h.result === 'Push') roundDraws++;
-                        else if (h.result === 'Dealer Wins' || h.result === 'Bust') roundLosses++;
+                        else if (h.result === 'Dealer Wins') roundLosses++;
                     });
 
                     setStats(prev => ({
